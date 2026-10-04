@@ -1,0 +1,857 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>量子比特与布洛赫球 · 交互式仿真</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0; background: #0b0e14; color: #e6e9ef; overflow: hidden;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif;
+    font-size: 14px; line-height: 1.6;
+    display: flex;
+  }
+  #stage { flex: 0 0 55%; position: relative; min-width: 0; }
+  #ball { display: block; width: 100%; height: 100%; cursor: grab; }
+  #ball:active { cursor: grabbing; }
+  #hint {
+    position: absolute; left: 16px; bottom: 14px; font-size: 12px;
+    color: #5a6478; pointer-events: none;
+  }
+  #panel {
+    flex: 1; min-width: 330px; overflow-y: auto; padding: 18px 20px 40px;
+    border-left: 1px solid #1a2130; background: #0d1118;
+  }
+  #panel::-webkit-scrollbar { width: 8px; }
+  #panel::-webkit-scrollbar-thumb { background: #232c3d; border-radius: 4px; }
+
+  h1 { font-size: 16px; margin: 0 0 4px; letter-spacing: .3px; }
+  .sub { color: #6b7688; font-size: 12px; margin-bottom: 16px; }
+
+  .card {
+    background: #121826; border: 1px solid #1e2739; border-radius: 10px;
+    padding: 14px 15px; margin-bottom: 14px;
+  }
+  .card > h2 {
+    font-size: 12px; font-weight: 600; color: #7f8ca3; margin: 0 0 12px;
+    text-transform: uppercase; letter-spacing: 1px;
+  }
+  .card.mix { border-color: #4a2f5c; background: #16121f; }
+  .card.mix > h2 { color: #b18ad0; }
+
+  .ket { font-family: "Cambria Math", Georgia, serif; font-size: 16px; color: #cfe0ff; }
+  .ket b { color: #7fc4ff; font-weight: 600; }
+  .rho {
+    font-family: Consolas, monospace; font-size: 13px; color: #c9b6e8;
+    white-space: pre; line-height: 1.9;
+  }
+  .rho .br { color: #4f5a70; }
+  .rho i { color: #8fb0d8; font-style: normal; }
+
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 14px; }
+  .kv { display: flex; justify-content: space-between; font-size: 13px; padding: 2px 0; }
+  .kv span:first-child { color: #6b7688; }
+  .kv span:last-child { font-family: Consolas, monospace; color: #a9b8d0; }
+
+  .barwrap { margin-top: 10px; }
+  .barlabel { display: flex; justify-content: space-between; font-size: 12px; color: #6b7688; margin-bottom: 3px; }
+  .barlabel b { color: #a9b8d0; font-weight: 500; font-family: Consolas, monospace; }
+  .bar { height: 8px; background: #1a2333; border-radius: 4px; overflow: hidden; }
+  .bar > i { display: block; height: 100%; width: 0%; transition: width .06s linear; }
+  .bar.p0 > i { background: linear-gradient(90deg, #2b6cb0, #4da3ff); }
+  .bar.p1 > i { background: linear-gradient(90deg, #b03050, #ff4d6d); }
+
+  button {
+    background: #1b2436; color: #cdd9ec; border: 1px solid #26314a;
+    border-radius: 7px; padding: 7px 10px; font-size: 13px; cursor: pointer;
+    transition: background .12s, border-color .12s;
+    font-family: Consolas, "Microsoft YaHei", monospace;
+  }
+  button:hover { background: #24304a; border-color: #3a4a6d; }
+  button:active { transform: translateY(1px); }
+  button.hot { background: #1f3050; border-color: #2f4d80; color: #9fc7ff; }
+  button.danger { color: #ff9aae; border-color: #4a2436; }
+  button.danger:hover { background: #2c1824; }
+  button.purple { color: #c9a8f0; border-color: #3d2a52; }
+  button.purple:hover { background: #241a33; }
+  .btnrow { display: flex; flex-wrap: wrap; gap: 7px; }
+  .gate { flex: 1 0 46px; text-align: center; font-size: 15px; padding: 9px 0; }
+
+  input[type=range] {
+    -webkit-appearance: none; width: 100%; height: 20px; background: transparent; margin: 2px 0 0;
+  }
+  input[type=range]::-webkit-slider-runnable-track {
+    height: 4px; background: #23304a; border-radius: 2px;
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none; width: 14px; height: 14px; border-radius: 50%;
+    background: #4da3ff; margin-top: -5px; cursor: pointer; border: 2px solid #0d1118;
+  }
+  .mix input[type=range]::-webkit-slider-thumb { background: #b18ad0; }
+  .slider { margin-bottom: 8px; }
+  .slider label { display: flex; justify-content: space-between; font-size: 12px; color: #6b7688; }
+  .slider label b { font-family: Consolas, monospace; color: #a9b8d0; font-weight: 500; }
+
+  #p1chart { display: block; width: 100%; height: 110px; margin-top: 10px; border-radius: 6px; background: #0a0e16; }
+  .note { font-size: 12px; color: #5f6a7d; margin-top: 8px; }
+  .result { font-family: Consolas, monospace; color: #ffd479; font-size: 13px; min-height: 20px; margin-top: 8px; }
+
+  @media (max-width: 900px) {
+    body { flex-direction: column; }
+    #stage { flex: 0 0 46vh; border-bottom: 1px solid #1a2130; }
+    #panel { border-left: none; }
+  }
+</style>
+</head>
+<body>
+
+<div id="stage">
+  <canvas id="ball"></canvas>
+  <div id="hint">拖动旋转视角 · 滚轮缩放</div>
+</div>
+
+<div id="panel">
+  <h1>量子比特与布洛赫球</h1>
+  <div class="sub">纯态 · 量子门 · 拉比振荡 · 退相干</div>
+
+  <!-- 态信息 -->
+  <div class="card">
+    <h2>当前态</h2>
+    <div id="staterep"></div>
+    <div class="grid2" style="margin-top:12px">
+      <div class="kv"><span>θ 极角</span><span id="vtheta">0°</span></div>
+      <div class="kv"><span>φ 方位角</span><span id="vphi">0°</span></div>
+      <div class="kv"><span>|r| 长度</span><span id="vlen">1.000</span></div>
+      <div class="kv"><span>纯度 tr ρ²</span><span id="vpur">1.000</span></div>
+    </div>
+    <div class="kv" style="margin-top:6px"><span>r&#8407; 矢量</span><span id="vr">(0, 0, 1)</span></div>
+    <div class="barwrap">
+      <div class="barlabel"><span>P(|0⟩)</span><b id="vp0">100.0%</b></div>
+      <div class="bar p0"><i id="bp0"></i></div>
+    </div>
+    <div class="barwrap">
+      <div class="barlabel"><span>P(|1⟩)</span><b id="vp1">0.0%</b></div>
+      <div class="bar p1"><i id="bp1"></i></div>
+    </div>
+  </div>
+
+  <!-- 直接设定 theta phi -->
+  <div class="card">
+    <h2>直接设定态</h2>
+    <div class="slider">
+      <label>θ <b id="ltheta">0°</b></label>
+      <input type="range" id="stheta" min="0" max="180" step="1" value="0">
+    </div>
+    <div class="slider">
+      <label>φ <b id="lphi">0°</b></label>
+      <input type="range" id="sphi" min="0" max="360" step="1" value="0">
+    </div>
+    <div class="btnrow">
+      <button id="b0" class="hot">|0⟩</button>
+      <button id="b1">|1⟩</button>
+      <button id="bp">|+⟩</button>
+      <button id="bm">|−⟩</button>
+      <button id="bi">|+i⟩</button>
+    </div>
+  </div>
+
+  <!-- 门 -->
+  <div class="card">
+    <h2>量子门</h2>
+    <div class="btnrow" style="margin-bottom:7px">
+      <button class="gate" data-gate="X">X</button>
+      <button class="gate" data-gate="Y">Y</button>
+      <button class="gate" data-gate="Z">Z</button>
+    </div>
+    <div class="btnrow">
+      <button class="gate" data-gate="H">H</button>
+      <button class="gate" data-gate="S">S</button>
+      <button class="gate" data-gate="T">T</button>
+    </div>
+    <div class="note">每个门 = 让布洛赫矢量绕某根轴转一个角。门是酉的，所以箭头长度不变。</div>
+  </div>
+
+  <!-- 绕轴旋转 -->
+  <div class="card">
+    <h2>绕任意轴旋转</h2>
+    <div class="slider">
+      <label>旋转角 α <b id="lalpha">90°</b></label>
+      <input type="range" id="salpha" min="-360" max="360" step="5" value="90">
+    </div>
+    <div class="btnrow">
+      <button class="gate" id="rx">R<sub>x</sub>(α)</button>
+      <button class="gate" id="ry">R<sub>y</sub>(α)</button>
+      <button class="gate" id="rz">R<sub>z</sub>(α)</button>
+    </div>
+    <div class="note">试 α = 360°：箭头回到原处。布洛赫球看不到全局相位——转 2π 时波函数其实变成了 −|ψ⟩，但球上一个点都没动。</div>
+  </div>
+
+  <!-- 拉比 -->
+  <div class="card">
+    <h2>拉比振荡 (Rabi)</h2>
+    <div class="slider">
+      <label>Ω 拉比频率 <b id="lom">6.0</b></label>
+      <input type="range" id="som" min="0" max="20" step="0.5" value="6">
+    </div>
+    <div class="slider">
+      <label>Δ 失谐 <b id="ldel">0.0</b></label>
+      <input type="range" id="sdel" min="-10" max="10" step="0.5" value="0">
+    </div>
+    <div class="btnrow">
+      <button id="brun" class="hot">▶ 开始演化</button>
+      <button id="breset" class="danger">重置</button>
+    </div>
+    <canvas id="p1chart"></canvas>
+    <div class="note">Δ=0 时在 |0⟩ 和 |1⟩ 间完整来回；Δ≠0 时振幅变小、频率变快。</div>
+  </div>
+
+  <!-- 退相干 -->
+  <div class="card mix">
+    <h2>退相干 / 弛豫</h2>
+    <div class="slider">
+      <label>T₁ 能量弛豫 <b id="lt1">∞</b></label>
+      <input type="range" id="st1" min="0" max="20" step="0.5" value="0">
+    </div>
+    <div class="slider">
+      <label>T<sub>φ</sub> 纯退相位 <b id="ltphi">∞</b></label>
+      <input type="range" id="stphi" min="0" max="20" step="0.5" value="0">
+    </div>
+    <div class="btnrow">
+      <button id="bdephase" class="purple">打开退相位 T₁=∞, T<sub>φ</sub>=2</button>
+      <button id="bthermal" class="purple">打开弛豫 T₁=2</button>
+      <button id="bclean" class="danger">关掉</button>
+    </div>
+    <div class="kv" style="margin-top:10px">
+      <span>T₂（相干时间）</span><span id="vt2">∞</span>
+    </div>
+    <div class="note">退相干 = 箭头往球心缩。缩到球心就是完全混态，什么量子信息都不剩了。
+    注意 <b>T₂ ≤ 2T₁</b> 是硬约束——这里 T₁ 和 T<sub>φ</sub> 独立给，T₂ 由 1/T₂ = 1/(2T₁) + 1/T<sub>φ</sub> 算出来。</div>
+  </div>
+
+  <!-- 测量 -->
+  <div class="card">
+    <h2>测量</h2>
+    <div class="btnrow">
+      <button id="bmeas" class="hot">测量一次（坍缩）</button>
+      <button id="bstat">统计 2000 次</button>
+    </div>
+    <div class="result" id="mres"></div>
+    <div class="note">测量后箭头跳到极点。注意：测量前 P(|0⟩) 只由 r 的 z 分量决定，横向相干性 rx,ry 全部被抹掉。</div>
+  </div>
+
+</div>
+
+<script>
+"use strict";
+
+/* ==============================================================
+   状态 = 布洛赫矢量 r = (rx, ry, rz)
+   |r| = 1 纯态；|r| < 1 混态；|r| = 0 完全混态
+   门  = 绕轴旋转（保长度）
+   退相干 = 向球心收缩
+   ============================================================== */
+let r = [0, 0, 1];              // 初始 |0⟩
+
+const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
+
+/* ---------- 三维向量工具 ---------- */
+function rotVec(v, n, a) {
+  // 罗德里格公式: v cosα + (n×v) sinα + n(n·v)(1−cosα)
+  const len = Math.hypot(n[0], n[1], n[2]) || 1;
+  const nx = n[0] / len, ny = n[1] / len, nz = n[2] / len;
+  const c = Math.cos(a), s = Math.sin(a);
+  const dot = v[0] * nx + v[1] * ny + v[2] * nz;
+  const cx = ny * v[2] - nz * v[1];
+  const cy = nz * v[0] - nx * v[2];
+  const cz = nx * v[1] - ny * v[0];
+  return [
+    v[0] * c + cx * s + nx * dot * (1 - c),
+    v[1] * c + cy * s + ny * dot * (1 - c),
+    v[2] * c + cz * s + nz * dot * (1 - c)
+  ];
+}
+
+function clipSphere(v) {
+  const L = Math.hypot(v[0], v[1], v[2]);
+  if (L <= 1 || L < 1e-12) return v;
+  return [v[0] / L, v[1] / L, v[2] / L];
+}
+
+/* ---------- 门：轴 + 转角 ---------- */
+const S2 = Math.SQRT1_2;
+const GATES = {
+  X: { axis: [1, 0, 0], angle: Math.PI },
+  Y: { axis: [0, 1, 0], angle: Math.PI },
+  Z: { axis: [0, 0, 1], angle: Math.PI },
+  H: { axis: [S2, 0, S2], angle: Math.PI },   // 绕 (x+z)/√2 转 180°
+  S: { axis: [0, 0, 1], angle: Math.PI / 2 },
+  T: { axis: [0, 0, 1], angle: Math.PI / 4 }
+};
+
+/* ---------- 从 r 反推纯态振幅（约定 α 为非负实数） ---------- */
+function ampsFromR(v) {
+  const rz = clamp(v[2], -1, 1);
+  const th = Math.acos(rz);
+  const ph = Math.atan2(v[1], v[0]);
+  const a = Math.cos(th / 2);
+  const b = Math.sin(th / 2);
+  return { a: { re: a, im: 0 }, b: { re: b * Math.cos(ph), im: b * Math.sin(ph) } };
+}
+
+/* ==============================================================
+   动力学：dr⃗/dt = Ω⃗ × r⃗ − 弛豫
+   Ω⃗ = (Ω, 0, Δ)，对应 H = (Ω σx + Δ σz)/2
+   弛豫：rx,ry 以 1/T₂ 衰减；rz 以 1/T₁ 弛豫到 +1（热平衡在 |0⟩）
+   ============================================================== */
+let Omega = 6, Delta = 0;
+let T1 = 0, Tphi = 0;           // 0 表示 ∞（不开启）
+
+function rates() {
+  const g1 = T1 > 0 ? 1 / T1 : 0;
+  const gphi = Tphi > 0 ? 1 / Tphi : 0;
+  return { g1, g2: g1 / 2 + gphi };
+}
+
+function drdt(v) {
+  const [rx, ry, rz] = v;
+  const { g1, g2 } = rates();
+  return [
+    -Delta * ry - g2 * rx,
+    Delta * rx - Omega * rz - g2 * ry,
+    Omega * ry - g1 * (rz - 1)
+  ];
+}
+
+function stepRK4(v, dt) {
+  const add = (u, k, h) => [u[0] + k[0] * h, u[1] + k[1] * h, u[2] + k[2] * h];
+  const k1 = drdt(v);
+  const k2 = drdt(add(v, k1, dt / 2));
+  const k3 = drdt(add(v, k2, dt / 2));
+  const k4 = drdt(add(v, k3, dt));
+  const out = [0, 0, 0];
+  for (let i = 0; i < 3; i++) {
+    out[i] = v[i] + (dt / 6) * (k1[i] + 2 * k2[i] + 2 * k3[i] + k4[i]);
+  }
+  return clipSphere(out);
+}
+
+/* 退相干开关时清空轨迹，避免视觉跳变 */
+function renormalizeTrail() { trail = []; }
+
+/* ==============================================================
+   布洛赫球渲染
+   ============================================================== */
+const ball = document.getElementById("ball");
+const ctx = ball.getContext("2d");
+let W = 0, H = 0;
+
+let az = -0.62, el = 0.38, zoom = 1;
+let camCache = null;
+
+function resize() {
+  const rect = ball.getBoundingClientRect();
+  const dpr = window.devicePixelRatio || 1;
+  ball.width = Math.max(1, Math.round(rect.width * dpr));
+  ball.height = Math.max(1, Math.round(rect.height * dpr));
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  W = rect.width; H = rect.height;
+}
+window.addEventListener("resize", resize);
+
+function updateCam() {
+  const ca = Math.cos(az), sa = Math.sin(az), ce = Math.cos(el), se = Math.sin(el);
+  camCache = {
+    u: [-sa, ca, 0],
+    v: [-se * ca, -se * sa, ce],
+    n: [ce * ca, ce * sa, se],
+    scale: Math.min(W, H) * 0.33 * zoom,
+    cx: W / 2, cy: H / 2
+  };
+}
+
+function proj(p) {
+  const { u, v, n, scale, cx, cy } = camCache;
+  const x = p[0], y = p[1], z = p[2];
+  const sx = x * u[0] + y * u[1] + z * u[2];
+  const sy = x * v[0] + y * v[1] + z * v[2];
+  const d  = x * n[0] + y * n[1] + z * n[2];
+  return [cx + sx * scale, cy - sy * scale, d];
+}
+
+function spherePoint(theta, phi) {
+  return [Math.sin(theta) * Math.cos(phi), Math.sin(theta) * Math.sin(phi), Math.cos(theta)];
+}
+
+function line3(points, style, width) {
+  ctx.strokeStyle = style;
+  ctx.lineWidth = width;
+  ctx.beginPath();
+  for (let i = 0; i < points.length; i++) {
+    const [sx, sy] = proj(points[i]);
+    if (i === 0) ctx.moveTo(sx, sy); else ctx.lineTo(sx, sy);
+  }
+  ctx.stroke();
+}
+
+// 逐段绘制，远处画得实一点、近处淡一点，制造立体深度
+function sphereLine(pts, baseColor, width, baseAlpha) {
+  ctx.lineWidth = width;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const a = proj(pts[i]), b = proj(pts[i + 1]);
+    const d = (a[2] + b[2]) / 2;
+    const k = 0.45 + 0.55 * (1 - (d + 1) / 2);
+    ctx.strokeStyle = `rgba(${baseColor},${(baseAlpha * k).toFixed(3)})`;
+    ctx.beginPath();
+    ctx.moveTo(a[0], a[1]);
+    ctx.lineTo(b[0], b[1]);
+    ctx.stroke();
+  }
+}
+
+function circlePts(n, fn) {
+  const pts = [];
+  for (let i = 0; i <= n; i++) pts.push(fn(i / n * Math.PI * 2));
+  return pts;
+}
+
+function drawArrowTo(p, color) {
+  const [x0, y0] = proj([0, 0, 0]);
+  const [x1, y1] = proj(p);
+  const dx = x1 - x0, dy = y1 - y0;
+  const ang = Math.atan2(dy, dx);
+  if (Math.hypot(dx, dy) < 2) return;
+
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 3;
+  ctx.lineCap = "round";
+  ctx.beginPath();
+  ctx.moveTo(x0, y0);
+  ctx.lineTo(x1, y1);
+  ctx.stroke();
+
+  const head = 13;
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  ctx.moveTo(x1, y1);
+  ctx.lineTo(x1 - head * Math.cos(ang - 0.42), y1 - head * Math.sin(ang - 0.42));
+  ctx.lineTo(x1 - head * Math.cos(ang + 0.42), y1 - head * Math.sin(ang + 0.42));
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.beginPath();
+  ctx.arc(x1, y1, 4.5, 0, Math.PI * 2);
+  ctx.fillStyle = color;
+  ctx.fill();
+}
+
+function drawLabel(p, text, color, font) {
+  const [x, y] = proj(p);
+  ctx.fillStyle = color;
+  ctx.font = font || "600 15px Cambria, Georgia, serif";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(text, x, y);
+}
+
+let trail = [];
+
+function draw() {
+  updateCam();
+  ctx.clearRect(0, 0, W, H);
+
+  // 球面网格
+  for (const lat of [-60, -30, 0, 30, 60]) {
+    const th = (90 - lat) * Math.PI / 180;
+    const pts = circlePts(72, u => spherePoint(th, u));
+    sphereLine(pts, lat === 0 ? "90,150,220" : "110,130,165", lat === 0 ? 1.4 : 0.9,
+               lat === 0 ? 0.55 : 0.34);
+  }
+  for (let lon = 0; lon < 180; lon += 30) {
+    const ph = lon * Math.PI / 180;
+    const pts = circlePts(72, u => spherePoint(u, ph));
+    sphereLine(pts, "110,130,165", 0.9, 0.26);
+  }
+
+  // 坐标轴
+  ctx.setLineDash([3, 4]);
+  for (const [a, b] of [
+    [[-1.18, 0, 0], [1.18, 0, 0]],
+    [[0, -1.18, 0], [0, 1.18, 0]],
+    [[0, 0, -1.18], [0, 0, 1.18]]
+  ]) line3([a, b], "rgba(120,140,175,0.35)", 1);
+  ctx.setLineDash([]);
+
+  // 标签
+  drawLabel([0, 0, 1.30], "|0⟩", "#7fc4ff");
+  drawLabel([0, 0, -1.30], "|1⟩", "#ff8fa3");
+  drawLabel([1.30, 0, 0], "x", "#6b7688", "500 13px Consolas, monospace");
+  drawLabel([0, 1.30, 0], "y", "#6b7688", "500 13px Consolas, monospace");
+
+  // 演化轨迹
+  if (trail.length > 1) {
+    for (let i = 0; i < trail.length - 1; i++) {
+      const a = proj(cscale3(trail[i], 1.001));
+      const b = proj(cscale3(trail[i + 1], 1.001));
+      ctx.strokeStyle = `rgba(255,196,90,${(0.10 + 0.55 * i / trail.length).toFixed(3)})`;
+      ctx.lineWidth = 1.6;
+      ctx.beginPath();
+      ctx.moveTo(a[0], a[1]);
+      ctx.lineTo(b[0], b[1]);
+      ctx.stroke();
+    }
+  }
+
+  // 态矢量
+  const [ox, oy] = proj([0, 0, 0]);
+  const [px, py] = proj([r[0], r[1], 0]);
+  const [tx, ty] = proj(r);
+  ctx.setLineDash([4, 4]);
+  ctx.strokeStyle = "rgba(255,77,109,0.32)";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(tx, ty); ctx.lineTo(px, py); ctx.lineTo(ox, oy);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // 混态时箭头颜色褪成灰紫
+  const purity = Math.hypot(r[0], r[1], r[2]);
+  const col = purity > 0.995
+    ? "#ff4d6d"
+    : `rgb(${Math.round(255 - 90 * purity)}, ${Math.round(77 + 60 * (1 - purity))}, ${Math.round(109 + 100 * (1 - purity))})`;
+  drawArrowTo(r, col);
+}
+
+function cscale3(v, s) { return [v[0] * s, v[1] * s, v[2] * s]; }
+
+/* ==============================================================
+   P(|1⟩) 时间曲线
+   ============================================================== */
+const chart = document.getElementById("p1chart");
+const cctx = chart.getContext("2d");
+let history = [];
+let tNow = 0;
+
+function resizeChart() {
+  const rect = chart.getBoundingClientRect();
+  const dpr = window.devicePixelRatio || 1;
+  chart.width = Math.max(1, Math.round(rect.width * dpr));
+  chart.height = Math.max(1, Math.round(rect.height * dpr));
+  cctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  chart._w = rect.width; chart._h = rect.height;
+}
+
+function drawChart() {
+  const w = chart._w || 300, h = chart._h || 110;
+  cctx.clearRect(0, 0, w, h);
+
+  cctx.strokeStyle = "rgba(120,140,175,0.16)";
+  cctx.lineWidth = 1;
+  for (const y of [0, 0.5, 1]) {
+    const yy = h - 12 - y * (h - 26);
+    cctx.beginPath(); cctx.moveTo(30, yy); cctx.lineTo(w - 8, yy); cctx.stroke();
+  }
+  cctx.fillStyle = "#5f6a7d";
+  cctx.font = "10px Consolas, monospace";
+  cctx.textAlign = "right";
+  cctx.textBaseline = "middle";
+  cctx.fillText("1", 26, 12);
+  cctx.fillText("0", 26, h - 12);
+
+  if (history.length < 2) {
+    cctx.textAlign = "center";
+    cctx.fillStyle = "#3d465a";
+    cctx.font = "12px 'Microsoft YaHei', sans-serif";
+    cctx.fillText("点击「开始演化」后显示 P(|1⟩) 随时间变化", w / 2, h / 2 - 4);
+    return;
+  }
+
+  const tMax = Math.max(history[history.length - 1].t, 1e-6);
+  const X = t => 30 + (t / tMax) * (w - 38);
+  const Y = p => h - 12 - p * (h - 26);
+
+  cctx.beginPath();
+  cctx.moveTo(X(history[0].t), Y(history[0].p));
+  for (const pt of history) cctx.lineTo(X(pt.t), Y(pt.p));
+  cctx.strokeStyle = "#ffb347";
+  cctx.lineWidth = 1.8;
+  cctx.stroke();
+
+  // 混态时用第二条浅线画 |r|，直观看到相干性的衰减
+  if (showCoherence) {
+    cctx.beginPath();
+    cctx.moveTo(X(history[0].t), Y(history[0].r));
+    for (const pt of history) cctx.lineTo(X(pt.t), Y(pt.r));
+    cctx.strokeStyle = "rgba(177,138,208,0.75)";
+    cctx.lineWidth = 1.4;
+    cctx.setLineDash([4, 3]);
+    cctx.stroke();
+    cctx.setLineDash([]);
+
+    cctx.fillStyle = "#b18ad0";
+    cctx.font = "10px 'Microsoft YaHei', sans-serif";
+    cctx.textAlign = "left";
+    cctx.textBaseline = "top";
+    cctx.fillText("虚线 = |r| 相干性", 34, 6);
+  }
+
+  const last = history[history.length - 1];
+  cctx.beginPath();
+  cctx.arc(X(last.t), Y(last.p), 3, 0, Math.PI * 2);
+  cctx.fillStyle = "#ffd479";
+  cctx.fill();
+}
+
+let showCoherence = false;
+
+/* ==============================================================
+   UI
+   ============================================================== */
+const $ = id => document.getElementById(id);
+
+const fmtN = x => (Math.abs(x) < 5e-4 ? "0" : x.toFixed(3));
+function fmtC(re, im) {
+  if (Math.abs(im) < 5e-4) return fmtN(re);
+  return `${fmtN(re)} ${im < 0 ? "−" : "+"} ${Math.abs(im).toFixed(3)}i`;
+}
+const fmtT = v => (v <= 0 ? "∞" : v.toFixed(1) + " s");
+
+function updateUI() {
+  const rx = r[0], ry = r[1], rz = r[2];
+  const len = Math.hypot(rx, ry, rz);
+  const pure = len > 0.9995;
+
+  const p0 = (1 + rz) / 2, p1 = 1 - p0;
+  const th = Math.acos(clamp(rz, -1, 1));
+  let ph = Math.atan2(ry, rx);
+  if (ph < 0) ph += 2 * Math.PI;
+
+  // 态的文字表示
+  if (pure) {
+    const { a, b } = ampsFromR(r);
+    $("staterep").innerHTML =
+      `<div class="ket"><b>${fmtC(a.re, a.im)}</b>|0⟩ &nbsp;+&nbsp; <b>${fmtC(b.re, b.im)}</b>|1⟩</div>`;
+  } else {
+    // ρ = (I + r·σ)/2
+    const r00 = (1 + rz) / 2, r11 = (1 - rz) / 2;
+    const r01re = rx / 2, r01im = -ry / 2;
+    $("staterep").innerHTML =
+      `<div class="rho"><span class="br">ρ = </span>⎡ <i>${fmtN(r00)}</i>  ${fmtC(r01re, r01im)} ⎤\n` +
+      `      ⎣ ${fmtC(r01re, -r01im)}  <i>${fmtN(r11)}</i> ⎦</div>` +
+      `<div class="note" style="margin-top:2px">混态，没有单一的波函数可以描述它</div>`;
+  }
+
+  $("vtheta").textContent = (th * 180 / Math.PI).toFixed(1) + "°";
+  $("vphi").textContent = (ph * 180 / Math.PI).toFixed(1) + "°";
+  $("vlen").textContent = len.toFixed(3);
+  $("vpur").textContent = ((1 + len * len) / 2).toFixed(3);
+  $("vr").textContent = `(${rx.toFixed(3)}, ${ry.toFixed(3)}, ${rz.toFixed(3)})`;
+  $("vp0").textContent = (p0 * 100).toFixed(1) + "%";
+  $("vp1").textContent = (p1 * 100).toFixed(1) + "%";
+  $("bp0").style.width = (p0 * 100) + "%";
+  $("bp1").style.width = (p1 * 100) + "%";
+
+  // T2 读数
+  const { g1, g2 } = rates();
+  if (g2 === 0) $("vt2").textContent = "∞";
+  else $("vt2").textContent = (1 / g2).toFixed(2) + " s";
+
+  // 滑块回写（用户没在拖时）
+  if (!draggingSlider) {
+    $("stheta").value = Math.round(th * 180 / Math.PI);
+    $("sphi").value = Math.round(ph * 180 / Math.PI);
+    $("ltheta").textContent = Math.round(th * 180 / Math.PI) + "°";
+    $("lphi").textContent = Math.round(ph * 180 / Math.PI) + "°";
+  }
+}
+
+let draggingSlider = false;
+window.addEventListener("pointerup", () => { draggingSlider = false; });
+window.addEventListener("pointercancel", () => { draggingSlider = false; });
+
+/* ==============================================================
+   视角交互
+   ============================================================== */
+let mouseDown = false, lastX = 0, lastY = 0;
+
+ball.addEventListener("pointerdown", e => {
+  mouseDown = true; lastX = e.clientX; lastY = e.clientY;
+  ball.setPointerCapture(e.pointerId);
+});
+ball.addEventListener("pointermove", e => {
+  if (!mouseDown) return;
+  az -= (e.clientX - lastX) * 0.008;
+  el = clamp(el + (e.clientY - lastY) * 0.008, -1.45, 1.45);
+  lastX = e.clientX; lastY = e.clientY;
+});
+ball.addEventListener("pointerup", e => {
+  mouseDown = false;
+  try { ball.releasePointerCapture(e.pointerId); } catch (_) {}
+});
+ball.addEventListener("wheel", e => {
+  e.preventDefault();
+  zoom = clamp(zoom * (e.deltaY > 0 ? 0.92 : 1.08), 0.55, 2.2);
+}, { passive: false });
+
+/* ==============================================================
+   控件绑定
+   ============================================================== */
+function setState(th, ph) {
+  running = false; setRunButton();
+  r = [Math.sin(th) * Math.cos(ph), Math.sin(th) * Math.sin(ph), Math.cos(th)];
+  trail = [];
+  updateUI();
+}
+
+["stheta", "sphi"].forEach(id => {
+  const el = $(id);
+  el.addEventListener("pointerdown", () => { draggingSlider = true; });
+  el.addEventListener("input", () => {
+    draggingSlider = true;
+    running = false; setRunButton();
+    $("ltheta").textContent = $("stheta").value + "°";
+    $("lphi").textContent = $("sphi").value + "°";
+    setState(+$("stheta").value * Math.PI / 180, +$("sphi").value * Math.PI / 180);
+  });
+});
+
+$("b0").onclick = () => setState(0, 0);
+$("b1").onclick = () => setState(Math.PI, 0);
+$("bp").onclick = () => setState(Math.PI / 2, 0);
+$("bm").onclick = () => setState(Math.PI / 2, Math.PI);
+$("bi").onclick = () => setState(Math.PI / 2, Math.PI / 2);
+
+document.querySelectorAll("[data-gate]").forEach(btn => {
+  btn.onclick = () => {
+    running = false; setRunButton();
+    const g = GATES[btn.dataset.gate];
+    r = rotVec(r, g.axis, g.angle);
+    afterManualChange();
+  };
+});
+
+function afterManualChange() { trail = []; updateUI(); }
+
+$("salpha").addEventListener("input", () => {
+  $("lalpha").textContent = $("salpha").value + "°";
+});
+const rotBy = (ax, ay, az_) => () => {
+  running = false; setRunButton();
+  r = rotVec(r, [ax, ay, az_], +$("salpha").value * Math.PI / 180);
+  afterManualChange();
+};
+$("rx").onclick = rotBy(1, 0, 0);
+$("ry").onclick = rotBy(0, 1, 0);
+$("rz").onclick = rotBy(0, 0, 1);
+
+$("som").addEventListener("input", () => {
+  Omega = +$("som").value; $("lom").textContent = Omega.toFixed(1);
+});
+$("sdel").addEventListener("input", () => {
+  Delta = +$("sdel").value; $("ldel").textContent = Delta.toFixed(1);
+});
+
+/* --- 退相干 --- */
+$("st1").addEventListener("input", () => {
+  T1 = +$("st1").value;
+  $("lt1").textContent = fmtT(T1);
+  showCoherence = (T1 > 0 || Tphi > 0);
+});
+$("stphi").addEventListener("input", () => {
+  Tphi = +$("stphi").value;
+  $("ltphi").textContent = fmtT(Tphi);
+  showCoherence = (T1 > 0 || Tphi > 0);
+});
+function setDeco(t1, tphi) {
+  T1 = t1; Tphi = tphi;
+  $("st1").value = t1; $("stphi").value = tphi;
+  $("lt1").textContent = fmtT(t1);
+  $("ltphi").textContent = fmtT(tphi);
+  showCoherence = (t1 > 0 || tphi > 0);
+}
+$("bdephase").onclick = () => { setDeco(0, 2); running = true; setRunButton(); trail = []; };
+$("bthermal").onclick = () => { setDeco(2, 8); running = true; setRunButton(); trail = []; };
+$("bclean").onclick = () => setDeco(0, 0);
+
+/* --- 测量 --- */
+$("bmeas").onclick = () => {
+  running = false; setRunButton();
+  const p0 = (1 + r[2]) / 2;
+  const outcome = Math.random() < p0 ? 0 : 1;
+  r = outcome === 0 ? [0, 0, 1] : [0, 0, -1];
+  trail = [];
+  $("mres").textContent =
+    `测得 |${outcome}⟩  （测量前 P(|${outcome}⟩) = ${(outcome === 0 ? p0 : 1 - p0).toFixed(3)}）`;
+  updateUI();
+};
+
+$("bstat").onclick = () => {
+  const p0 = (1 + r[2]) / 2;
+  const N = 2000;
+  let n0 = 0;
+  for (let i = 0; i < N; i++) if (Math.random() < p0) n0++;
+  $("mres").textContent =
+    `${N} 次：|0⟩ ${n0} 次 (${(n0 / N * 100).toFixed(1)}%)，` +
+    `|1⟩ ${N - n0} 次 (${((N - n0) / N * 100).toFixed(1)}%)　` +
+    `理论 (${(p0 * 100).toFixed(1)}% / ${((1 - p0) * 100).toFixed(1)}%)`;
+};
+
+/* ==============================================================
+   主循环
+   ============================================================== */
+let running = false;
+let lastT = 0;
+
+function setRunButton() {
+  $("brun").textContent = running ? "⏸ 暂停" : "▶ 开始演化";
+  $("brun").classList.toggle("hot", !running);
+}
+
+$("brun").onclick = () => {
+  if (!running && history.length === 0) { tNow = 0; trail = []; }
+  running = !running;
+  setRunButton();
+};
+
+$("breset").onclick = () => {
+  running = false; setRunButton();
+  r = [0, 0, 1];
+  history = []; tNow = 0; trail = [];
+  $("mres").textContent = "";
+  updateUI();
+};
+
+function frame(ts) {
+  const dtReal = lastT ? Math.min((ts - lastT) / 1000, 0.05) : 0;
+  lastT = ts;
+
+  if (running && dtReal > 0) {
+    const sub = 8;                       // 分子步，保证 RK4 精度
+    for (let i = 0; i < sub; i++) r = stepRK4(r, dtReal / sub);
+    tNow += dtReal;
+
+    history.push({ t: tNow, p: (1 - r[2]) / 2, r: Math.hypot(r[0], r[1], r[2]) });
+    if (history.length > 1400) history.shift();
+
+    if (tNow < 40) {
+      trail.push(r.slice());
+      if (trail.length > 300) trail.shift();
+    }
+  }
+
+  draw();
+  drawChart();
+  updateUI();
+  requestAnimationFrame(frame);
+}
+
+resize();
+resizeChart();
+window.addEventListener("resize", () => { resize(); resizeChart(); });
+window.addEventListener("orientationchange", () => { resize(); resizeChart(); });
+updateUI();
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

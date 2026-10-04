@@ -1,0 +1,2487 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>量子实验室 · 布洛赫球与量子线路</title>
+<meta name="description" content="交互式量子计算教学演示：单比特布洛赫球（量子门、拉比振荡、退相干、测量）与多比特量子线路仿真（纠缠、约化密度矩阵、纠缠熵）。">
+<meta name="color-scheme" content="dark">
+<meta name="theme-color" content="#070910">
+<style>
+/* ============================================================
+   设计令牌
+   ============================================================ */
+:root {
+  --bg:        #070910;
+  --bg-glow:   #0d1526;
+  --panel:     #0f1520;
+  --panel-2:   #131a27;
+  --panel-3:   #182130;
+  --border:    #1d2637;
+  --line:      #232e42;
+
+
+  --text:      #e9edf5;
+  --text-2:    #93a0b5;
+  --text-3:    #5f6b7f;
+
+  --accent:    #4d9fff;
+  --accent-d:  #2b6cb0;
+  --violet:    #a78bfa;
+  --violet-d:  #7c5cd6;
+  --pink:      #f0557d;
+  --pink-d:    #b03050;
+  --amber:     #ffb454;
+  --green:     #3fd18b;
+
+  --r:   12px;
+  --r-s: 8px;
+  --shadow:    0 4px 18px rgba(0,0,0,.45);
+  --shadow-s:  0 2px 8px rgba(0,0,0,.35);
+  --glow-blue: 0 0 0 1px rgba(77,159,255,.35), 0 4px 18px rgba(43,108,176,.22);
+}
+
+* { box-sizing: border-box; }
+html { height: 100%; }
+body { height: 100vh; height: 100dvh; margin: 0; }
+
+body {
+  background:
+    radial-gradient(1100px 620px at 18% -10%, rgba(43,108,176,.16), transparent 60%),
+    radial-gradient(900px 520px at 92% 4%, rgba(124,92,214,.13), transparent 62%),
+    var(--bg);
+  color: var(--text);
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif;
+  font-size: 14px; line-height: 1.62;
+  display: flex; flex-direction: column;
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ============================================================
+   顶栏
+   ============================================================ */
+.topbar {
+  display: flex; align-items: center; gap: 20px;
+  padding: 0 22px; height: 62px; flex: 0 0 auto;
+  border-bottom: 1px solid var(--border);
+  background: linear-gradient(180deg, rgba(19,26,39,.92), rgba(12,17,26,.92));
+  backdrop-filter: blur(12px);
+  z-index: 10;
+}
+.brand { display: flex; align-items: center; gap: 12px; }
+.logo {
+  width: 36px; height: 36px; border-radius: 10px;
+  display: grid; place-items: center;
+  font-family: "Cambria Math", Georgia, serif; font-size: 19px; color: #cfe2ff;
+  background: linear-gradient(145deg, #213a63, #16203a);
+  border: 1px solid #2f4d80;
+  box-shadow: 0 0 22px rgba(77,159,255,.22), 0 1px 0 rgba(255,255,255,.07) inset;
+  letter-spacing: -.5px;
+}
+.brand h1 { font-size: 15px; margin: 0; font-weight: 600; letter-spacing: .2px; }
+.brand p { margin: 0; font-size: 11.5px; color: var(--text-3); letter-spacing: .3px; }
+
+.tabs {
+  display: flex; gap: 4px; padding: 4px; margin-left: 6px;
+  background: rgba(9,12,19,.85); border: 1px solid var(--border); border-radius: 12px;
+}
+.tab {
+  appearance: none; border: 0; cursor: pointer; font-family: inherit;
+  padding: 8px 20px; border-radius: 9px; font-size: 13.5px;
+  color: var(--text-2); background: transparent;
+  transition: color .16s, background .16s, box-shadow .16s;
+  display: flex; align-items: center; gap: 8px;
+}
+.tab:hover { color: var(--text); background: rgba(255,255,255,.035); }
+.tab.active {
+  color: #d6e6ff;
+  background: linear-gradient(180deg, #22314f, #182238);
+  box-shadow: 0 1px 0 rgba(255,255,255,.07) inset, 0 3px 10px rgba(0,0,0,.4), 0 0 0 1px #2f4d80;
+}
+.tab .dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: #334158; transition: background .16s, box-shadow .16s;
+}
+.tab.active .dot { background: var(--accent); box-shadow: 0 0 8px var(--accent); }
+
+.topright { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+
+/* ============================================================
+   布局
+   ============================================================ */
+main { flex: 1; min-height: 0; position: relative; }
+.panel { display: none; height: 100%; }
+.panel:not(.active) { pointer-events: none; }
+.panel.active { display: flex; animation: panelIn .32s cubic-bezier(.16,1,.3,1) both; }
+.split { display: flex; width: 100%; min-height: 0; }
+
+.stage {
+  flex: 0 0 54%; position: relative; min-width: 0;
+  background: radial-gradient(700px 500px at 50% 45%, rgba(35,58,100,.20), transparent 70%);
+}
+.stage, .stage canvas { touch-action: none; }
+.stage canvas { display: block; width: 100%; height: 100%; cursor: grab; }
+.stage canvas:active { cursor: grabbing; }
+.stage .hint {
+  position: absolute; left: 18px; bottom: 15px; font-size: 11.5px;
+  color: var(--text-3); pointer-events: none; letter-spacing: .2px;
+  background: rgba(9,13,21,.62); padding: 4px 11px; border-radius: 20px;
+  border: 1px solid rgba(255,255,255,.05);
+  -webkit-backdrop-filter: blur(7px); backdrop-filter: blur(7px);
+}
+.side {
+  flex: 1; min-width: 330px; overflow-y: auto;
+  padding: 16px 20px 48px; border-left: 1px solid var(--border);
+  background: linear-gradient(180deg, rgba(10,14,22,.5), transparent 200px);
+}
+.side::-webkit-scrollbar, .scroll::-webkit-scrollbar { width: 9px; height: 9px; }
+.side::-webkit-scrollbar-thumb, .scroll::-webkit-scrollbar-thumb {
+  background: #232e42; border-radius: 5px; border: 2px solid transparent; background-clip: padding-box;
+}
+.side::-webkit-scrollbar-thumb:hover, .scroll::-webkit-scrollbar-thumb:hover { background: #2f3d56; background-clip: padding-box; }
+
+/* ============================================================
+   动效
+   ============================================================ */
+@keyframes cardIn {
+  from { opacity: 0; transform: translateY(9px) scale(.995); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes panelIn {
+  from { opacity: 0; transform: translateY(7px); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes softPulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: .55; }
+}
+@keyframes glyphPop {
+  from { transform: translate(-50%, -50%) scale(.55); opacity: 0; }
+  to   { transform: translate(-50%, -50%) scale(1);   opacity: 1; }
+}
+
+/* ============================================================
+   卡片
+   ============================================================ */
+.card {
+  position: relative;
+  background: linear-gradient(180deg, var(--panel-2), var(--panel));
+  border: 1px solid var(--border); border-radius: var(--r);
+  padding: 15px 16px; margin-bottom: 13px;
+  box-shadow: var(--shadow-s);
+  transition: border-color .18s, box-shadow .18s;
+  animation: cardIn .4s cubic-bezier(.16,1,.3,1) both;
+}
+.card:nth-child(1) { animation-delay: .00s; }
+.card:nth-child(2) { animation-delay: .04s; }
+.card:nth-child(3) { animation-delay: .08s; }
+.card:nth-child(4) { animation-delay: .12s; }
+.card:nth-child(5) { animation-delay: .16s; }
+.card:nth-child(6) { animation-delay: .20s; }
+.card:nth-child(7) { animation-delay: .24s; }
+.card::before {
+  content: ''; position: absolute; inset: 0 0 auto 0; height: 1px;
+  border-radius: var(--r) var(--r) 0 0;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,.07), transparent);
+  pointer-events: none;
+}
+.card:hover { border-color: #26324a; }
+.card > h2 {
+  font-size: 11px; font-weight: 600; color: var(--text-3);
+  margin: 0 0 12px; text-transform: uppercase; letter-spacing: 1.3px;
+  display: flex; align-items: center; gap: 7px;
+}
+.card > h2::before {
+  content: ''; width: 3px; height: 11px; border-radius: 2px;
+  background: linear-gradient(180deg, var(--accent), var(--accent-d));
+}
+.card.mix { border-color: #33254a; background: linear-gradient(180deg, #191426, #131020); }
+.card.mix > h2 { color: #a98ed0; }
+.card.mix > h2::before { background: linear-gradient(180deg, var(--violet), var(--violet-d)); }
+
+.note { font-size: 12px; color: var(--text-3); margin-top: 9px; line-height: 1.65; }
+.note b { color: var(--text-2); font-weight: 500; }
+
+/* ============================================================
+   引导 · 计算记录 · 步骤导航
+   ============================================================ */
+.card.guide { border-color: #2a3a52; background: linear-gradient(180deg, #141c2b, #101622); }
+.card.guide > h2 { color: #7fa8d8; }
+.card.guide > h2::before { background: linear-gradient(180deg, #4d9fff, #2b6cb0); }
+
+ol.steps {
+  margin: 2px 0 0; padding-left: 19px;
+  font-size: 12.5px; color: var(--text-2); line-height: 1.85;
+}
+ol.steps li { margin-bottom: 3px; }
+ol.steps li::marker { color: #4a6b99; }
+ol.steps b { color: #8dc6ff; font-weight: 600; }
+ol.steps code {
+  font-family: Consolas, ui-monospace, monospace; font-size: 12px;
+  background: rgba(77,159,255,.1); color: #9ed0ff;
+  padding: 1px 5px; border-radius: 4px;
+}
+
+.log { font-family: Consolas, ui-monospace, monospace; font-size: 12px; max-height: 230px; overflow-y: auto; }
+.log .entry {
+  padding: 7px 10px; border-radius: 7px; margin-bottom: 6px;
+  background: rgba(255,255,255,.022); border-left: 2px solid #2b6cb0;
+  animation: cardIn .3s cubic-bezier(.16,1,.3,1) both;
+}
+.log .entry.gate { border-left-color: #4d9fff; }
+.log .entry.mix  { border-left-color: #a78bfa; }
+.log .entry.meas { border-left-color: #f0557d; }
+.log .op { color: #9ed0ff; font-weight: 600; }
+.log .n { color: #4f5a70; margin-right: 7px; }
+.log .calc { color: #8393aa; margin-top: 4px; line-height: 1.7; }
+.log .calc .from { color: #6b7688; }
+.log .calc .to   { color: #d3e2ff; }
+.log .calc .why  { color: #5f6b7f; display: block; margin-top: 3px; }
+.log .mx {
+  font-family: Consolas, ui-monospace, monospace; color: #cbb8ee;
+  white-space: pre; font-size: 12px; line-height: 1.55;
+}
+.log .step2 { color: #a9b8d0; margin: 5px 0 6px; line-height: 1.75; }
+.log .empty { color: #4f5a70; font-size: 12px; padding: 8px 0; }
+
+.stepnav { display: flex; align-items: center; gap: 9px; margin-bottom: 12px; }
+.stepnav button { flex: 0 0 auto; width: 34px; padding: 5px 0; text-align: center; font-size: 12px; }
+.stepnav input[type=range] { flex: 1; min-width: 60px; }
+.stepcount {
+  font-family: Consolas, ui-monospace, monospace; font-size: 12px;
+  color: var(--text-3); flex: 0 0 auto; white-space: nowrap; min-width: 58px; text-align: right;
+}
+
+.stepinfo { font-size: 12.5px; line-height: 1.75; }
+.stepinfo .ops {
+  color: #9ed0ff; font-weight: 600;
+  font-family: Consolas, ui-monospace, monospace; font-size: 13.5px;
+}
+.stepinfo .explain { color: var(--text-2); margin-top: 6px; }
+.stepinfo .sub { color: var(--text-3); font-size: 12px; margin: 10px 0 3px; letter-spacing: .3px; }
+.stepinfo .matrix {
+  font-family: Consolas, ui-monospace, monospace; color: #cbb8ee;
+  white-space: pre; font-size: 12.5px; line-height: 1.65;
+}
+.stepinfo .basis {
+  font-family: Consolas, ui-monospace, monospace; font-size: 12.5px;
+}
+.stepinfo .basis > div {
+  display: grid; grid-template-columns: 60px minmax(0, 1fr) 22px minmax(0, 1fr);
+  align-items: baseline; gap: 3px; padding: 1.5px 3px;
+}
+.stepinfo .basis > div.chg { background: rgba(255,180,84,.06); border-radius: 4px; }
+.stepinfo .basis .hd { color: var(--text-3); font-size: 10.5px; letter-spacing: .4px; }
+.stepinfo .basis .k { color: #8dc6ff; }
+.stepinfo .basis .v {
+  color: #cbb8ee; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.stepinfo .basis .v.dim { color: #46506a; }
+.stepinfo .basis .ar { color: #46506a; text-align: center; }
+.stepinfo .basis > div.chg .ar { color: #ffb454; }
+.stepinfo .delta { color: #ffb454; }
+.stepinfo .why2 { color: var(--text-3); font-size: 12px; margin-top: 4px; line-height: 1.7; }
+
+/* ---------- 术语小抄 ---------- */
+details.gloss {
+  margin-top: 11px; border: 1px solid var(--border); border-radius: var(--r-s);
+  background: rgba(255,255,255,.014);
+}
+details.gloss > summary {
+  cursor: pointer; padding: 8px 11px; font-size: 12.5px; color: var(--text-2);
+  list-style: none; user-select: none; border-radius: var(--r-s);
+  transition: color .14s, background .14s;
+}
+details.gloss > summary::-webkit-details-marker { display: none; }
+details.gloss > summary::before {
+  content: '▸'; color: #4a6b99; display: inline-block; width: 13px;
+  transition: transform .18s ease;
+}
+details.gloss[open] > summary::before { transform: rotate(90deg); }
+details.gloss > summary:hover { color: var(--text); background: rgba(255,255,255,.025); }
+details.gloss dl { margin: 0; padding: 0 13px 12px; font-size: 12px; }
+details.gloss dt { color: #8dc6ff; font-weight: 600; margin-top: 10px; font-size: 12.5px; }
+details.gloss dt .en { color: #4a6b99; font-weight: 400; font-size: 11px; margin-left: 5px; }
+details.gloss dd { margin: 3px 0 0; color: var(--text-2); line-height: 1.72; }
+details.gloss code {
+  font-family: Consolas, ui-monospace, monospace; font-size: 11.5px;
+  background: rgba(77,159,255,.1); color: #9ed0ff; padding: 0 4px; border-radius: 3px;
+}
+
+
+/* ============================================================
+   按钮
+   ============================================================ */
+button {
+  appearance: none; font-family: inherit; cursor: pointer;
+  background: linear-gradient(180deg, #1b2436, #161d2b);
+  color: #c6d3e8; border: 1px solid #27334b;
+  border-radius: var(--r-s); padding: 7px 12px; font-size: 13px;
+  transition: background .14s, border-color .14s, color .14s, transform .06s, box-shadow .14s;
+}
+button:hover { background: linear-gradient(180deg, #232e47, #1b2436); border-color: #35456a; color: #dbe6f7; }
+button:active { transform: translateY(1px); }
+button:focus-visible { outline: none; box-shadow: var(--glow-blue); }
+button.hot {
+  background: linear-gradient(180deg, #24417a, #1c2f56); border-color: #3a63a8; color: #c4dcff;
+}
+button.hot:hover { background: linear-gradient(180deg, #2c4d8d, #223764); }
+button.purple { background: linear-gradient(180deg, #32245c, #241a44); border-color: #4d3a80; color: #d3c2f5; }
+button.purple:hover { background: linear-gradient(180deg, #3d2c6e, #2c2054); }
+button.danger { color: #ff9aae; border-color: #4a2436; background: linear-gradient(180deg, #2a1a22, #201520); }
+button.danger:hover { background: linear-gradient(180deg, #351f2b, #291923); }
+button.small { padding: 5px 10px; font-size: 12px; }
+button.on {
+  background: linear-gradient(180deg, #29508f, #1e3459);
+  border-color: #4d7cc4; color: #d6e6ff;
+  box-shadow: 0 0 0 1px rgba(77,159,255,.25), 0 2px 10px rgba(43,108,176,.3);
+}
+.btnrow { display: flex; flex-wrap: wrap; gap: 7px; }
+.gate { flex: 1 0 46px; text-align: center; font-size: 15px; padding: 9px 0; font-family: Consolas, ui-monospace, monospace; }
+
+/* ============================================================
+   滑块
+   ============================================================ */
+input[type=range] { -webkit-appearance: none; appearance: none; width: 100%; height: 20px; background: transparent; margin: 2px 0 0; }
+input[type=range]::-webkit-slider-runnable-track {
+  height: 4px; border-radius: 3px;
+  background: linear-gradient(90deg, #2b4a7a, #23304a);
+  box-shadow: 0 1px 2px rgba(0,0,0,.4) inset;
+}
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none; width: 15px; height: 15px; border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #9ecbff, #4d9fff 55%, #2b6cb0);
+  margin-top: -6px; cursor: pointer; border: 2px solid #0d1119;
+  box-shadow: 0 0 10px rgba(77,159,255,.45);
+  transition: box-shadow .15s;
+}
+input[type=range]::-webkit-slider-thumb:hover { box-shadow: 0 0 16px rgba(77,159,255,.75); }
+input[type=range]:focus-visible::-webkit-slider-thumb {
+  box-shadow: 0 0 0 3px rgba(77,159,255,.28), 0 0 18px rgba(77,159,255,.8);
+}
+.card.mix input[type=range]::-webkit-slider-thumb {
+  background: radial-gradient(circle at 35% 30%, #d9c8ff, #a78bfa 55%, #7c5cd6);
+  box-shadow: 0 0 10px rgba(167,139,250,.45);
+}
+.slider { margin-bottom: 9px; }
+.slider label { display: flex; justify-content: space-between; font-size: 12px; color: var(--text-3); margin-bottom: 1px; }
+.slider label b { font-family: Consolas, ui-monospace, monospace; color: var(--text-2); font-weight: 500; }
+
+/* ============================================================
+   读数 / 度量
+   ============================================================ */
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 5px 16px; }
+.kv { display: flex; justify-content: space-between; align-items: baseline; font-size: 13px; padding: 2px 0; gap: 10px; }
+.kv > span:first-child { color: var(--text-3); white-space: nowrap; }
+.kv > span:last-child { font-family: Consolas, ui-monospace, monospace; color: #b6c4da; text-align: right; }
+
+.ket { font-family: "Cambria Math", Georgia, serif; font-size: 17px; color: #d3e2ff; letter-spacing: .2px; }
+.ket b { color: #8dc6ff; font-weight: 600; }
+.rho { font-family: Consolas, ui-monospace, monospace; font-size: 13px; color: #cbb8ee; white-space: pre; line-height: 1.85; }
+.rho .br { color: var(--text-3); }
+
+.barwrap { margin-top: 11px; }
+.barlabel { display: flex; justify-content: space-between; font-size: 12px; color: var(--text-3); margin-bottom: 4px; }
+.barlabel b { color: var(--text-2); font-weight: 500; font-family: Consolas, ui-monospace, monospace; }
+.bar { height: 7px; background: #161e2c; border-radius: 4px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,.5) inset; }
+.bar > i { display: block; height: 100%; width: 0%; border-radius: 4px; transition: width .07s linear; }
+.bar.p0 > i { background: linear-gradient(90deg, #2b6cb0, #6cb6ff); box-shadow: 0 0 8px rgba(77,159,255,.5); }
+.bar.p1 > i { background: linear-gradient(90deg, #b03050, #ff6f8d); box-shadow: 0 0 8px rgba(240,85,125,.5); }
+
+.entbar { height: 6px; background: #161e2c; border-radius: 4px; overflow: hidden; margin: 1px 0 7px; }
+.entbar > i { display: block; height: 100%; background: linear-gradient(90deg, #2b6cb0, #a78bfa); border-radius: 4px; transition: width .12s; }
+
+.result {
+  font-family: Consolas, ui-monospace, monospace; color: var(--amber);
+  font-size: 12.5px; min-height: 19px; margin-top: 9px; white-space: pre-line; line-height: 1.7;
+}
+
+/* 数字一律等宽对齐，数值跳动时不会左右抖 */
+.kv > span:last-child, .result, .ampl, .barlabel b, .slider label b,
+.bcell span, .qlabel, .rho, .ket, .warn {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+
+::selection { background: rgba(77,159,255,0.28); color: #fff; }
+
+/* 仅供读屏：视觉上不可见，但会被辅助技术朗读 */
+.sr-only {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%);
+  white-space: nowrap; border: 0;
+}
+
+.warn { color: var(--amber); font-size: 12px; margin-top: 8px; }
+
+canvas.plot { display: block; width: 100%; border-radius: var(--r-s); background: rgba(6,9,15,.75); }
+
+/* ============================================================
+   线路图
+   ============================================================ */
+.circuitwrap { overflow-x: auto; overflow-y: hidden; padding-bottom: 3px; }
+.circuitwrap::-webkit-scrollbar { height: 8px; }
+.circuitwrap::-webkit-scrollbar-thumb {
+  background: #232e42; border-radius: 5px; border: 2px solid transparent; background-clip: padding-box;
+}
+.circuitwrap::-webkit-scrollbar-thumb:hover { background: #2f3d56; background-clip: padding-box; }
+
+#circuit { display: grid; gap: 0; user-select: none; min-width: 492px; }
+.qlabel {
+  display: flex; align-items: center; justify-content: flex-end; padding-right: 11px;
+  font-family: Consolas, ui-monospace, monospace; font-size: 13px; color: var(--text-3);
+  position: sticky; left: 0; z-index: 3;
+  background: linear-gradient(90deg, var(--panel) 76%, rgba(19,26,39,0) 100%);
+}
+.qlabel b { color: var(--accent); font-weight: 500; font-size: 14px; }
+.cell { position: relative; height: 46px; cursor: pointer; }
+.cell::before {
+  content: ''; position: absolute; left: 0; right: 0; top: 50%;
+  height: 2px; margin-top: -1px; background: var(--line);
+  transition: background .14s;
+}
+.cell:hover::before { background: #33425c; }
+.cell .vline { position: absolute; left: 50%; width: 2px; margin-left: -1px; background: var(--accent); display: none; box-shadow: 0 0 6px rgba(77,159,255,.6); }
+.cell.vdown .vline { top: 50%; bottom: 0; display: block; }
+.cell.vup   .vline { top: 0; bottom: 50%; display: block; }
+.cell.vboth .vline { top: 0; bottom: 0; display: block; }
+.glyph {
+  position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+  width: 31px; height: 31px; border-radius: var(--r-s);
+  display: flex; align-items: center; justify-content: center;
+  font-family: Consolas, ui-monospace, monospace; font-size: 13px; z-index: 2;
+  background: linear-gradient(180deg, #22314f, #1a2439);
+  border: 1px solid #3a5a94; color: #bcd8ff;
+  box-shadow: 0 2px 8px rgba(0,0,0,.45), 0 1px 0 rgba(255,255,255,.06) inset;
+  transition: transform .1s, box-shadow .14s;
+}
+.cell:hover .glyph { transform: translate(-50%, -50%) scale(1.06); }
+.glyph.g2 { background: linear-gradient(180deg, #33265a, #261c46); border-color: #6b4fa8; color: #dccbff; }
+.glyph.meas {
+  background: linear-gradient(180deg, #4a2632, #341c24); border-color: #8a4258; color: #ffb3c3;
+  border-radius: 50%; font-size: 12px;
+}
+.glyph.dot {
+  width: 15px; height: 15px; border-radius: 50%; padding: 0;
+  background: radial-gradient(circle at 35% 30%, #9ecbff, #4d9fff 60%, #2b6cb0);
+  border-color: #7fc4ff; box-shadow: 0 0 10px rgba(77,159,255,.6);
+}
+.glyph.plus {
+  background: transparent; border-color: var(--accent); border-radius: 50%;
+  color: #8dc6ff; font-size: 18px; box-shadow: 0 0 10px rgba(77,159,255,.25);
+}
+.cell.pending::before { background: #7a5a20; }
+.cell.hoverok::before { background: #ffb454; }
+
+/* ============================================================
+   振幅表
+   ============================================================ */
+.ampl { font-family: Consolas, ui-monospace, monospace; font-size: 12.5px; max-height: 158px; overflow-y: auto; }
+.ampl > div { display: flex; align-items: baseline; gap: 10px; padding: 2px 6px; border-radius: 5px; }
+.ampl > div:hover { background: rgba(255,255,255,.035); }
+.ampl .k { color: #8dc6ff; flex: 0 0 62px; }
+.ampl .v { color: #cbb8ee; flex: 1; }
+.ampl .p { color: var(--text-3); flex: 0 0 56px; text-align: right; }
+
+.blochrow { display: flex; flex-wrap: wrap; gap: 14px; }
+.bcell { text-align: center; }
+.bcell canvas { display: block; width: 108px; height: 108px; border-radius: 10px; background: rgba(6,9,15,.8); border: 1px solid var(--border); }
+.bcell span { font-size: 11px; color: var(--text-3); font-family: Consolas, ui-monospace, monospace; line-height: 1.5; display: block; margin-top: 5px; }
+.bcell span b { color: var(--text-2); font-weight: 500; }
+
+.sep { width: 1px; background: var(--border); margin: 0 3px; align-self: stretch; }
+.toolgrid { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.toolgrid button { flex: 0 0 auto; min-width: 42px; text-align: center; font-family: Consolas, ui-monospace, monospace; }
+
+/* ============================================================
+   响应式
+   ============================================================ */
+@media (max-width: 1000px) {
+  .split { flex-direction: column; }
+  .stage { flex: 0 0 44vh; border-bottom: 1px solid var(--border); }
+  .side { border-left: 0; min-width: 0; }
+  .topbar { height: auto; flex-wrap: wrap; padding: 12px 16px; gap: 12px; }
+  .brand p { display: none; }
+}
+@media (max-width: 620px) {
+  .tab { padding: 7px 13px; font-size: 12.5px; }
+  .brand h1 { font-size: 14px; }
+}
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <div class="logo">⟨ψ|</div>
+    <div>
+      <h1>量子实验室</h1>
+      <p>单比特几何 · 多比特线路</p>
+    </div>
+  </div>
+  <nav class="tabs" role="tablist" aria-label="视图切换">
+    <button class="tab active" data-tab="bloch" role="tab" id="tab-bloch"
+            aria-selected="true" aria-controls="panel-bloch"><span class="dot" aria-hidden="true"></span>布洛赫球</button>
+    <button class="tab" data-tab="circuit" role="tab" id="tab-circuit" tabindex="-1"
+            aria-selected="false" aria-controls="panel-circuit"><span class="dot" aria-hidden="true"></span>量子线路</button>
+  </nav>
+</header>
+
+<main>
+
+<!-- ═══════════════════════════════════════════════════════════
+     面板 1 · 单比特布洛赫球
+     ═══════════════════════════════════════════════════════════ -->
+<section class="panel active" id="panel-bloch" role="tabpanel" aria-labelledby="tab-bloch">
+<div class="split">
+
+  <div class="stage">
+    <canvas id="ball" role="img" aria-label="布洛赫球三维视图，红色箭头表示当前量子态"></canvas>
+    <div class="sr-only" id="ballsr" aria-live="polite"></div>
+    <div class="hint">拖动旋转视角 · 滚轮缩放</div>
+  </div>
+
+  <div class="side">
+
+    <div class="card guide">
+      <h2>怎么用</h2>
+      <ol class="steps">
+        <li>球面上的<b>红箭头</b>就是当前量子态。北极是 <code>|0⟩</code>，南极是 <code>|1⟩</code>。</li>
+        <li>点「量子门」里的 <b>H</b> —— 箭头会从北极滑到赤道，这就是<b>叠加态</b>。</li>
+        <li>拖 θ、φ 滑块可以直接把箭头放到球面任何位置。</li>
+        <li>点「拉比振荡」的开始，看箭头自己绕圈转起来。</li>
+      </ol>
+      <div class="note">每次操作都会写进底部的「计算记录」，那里有具体的数字变化。</div>
+
+      <details class="gloss">
+        <summary>术语小抄 —— 看不懂的词点这里</summary>
+        <dl>
+          <dt>振幅<span class="en">amplitude</span></dt>
+          <dd>波函数里 <code>|0⟩</code> 和 <code>|1⟩</code> 前面的那个系数 α、β。
+          测量到某个结果的概率 = 该振幅的模平方，也就是 <code>|α|²</code>。</dd>
+
+          <dt>叠加<span class="en">superposition</span></dt>
+          <dd>同时"是" <code>|0⟩</code> 和 <code>|1⟩</code>。注意它不是"各一半"，
+          而是一个确定的新状态，比如 <code>(|0⟩+|1⟩)/√2</code>。</dd>
+
+          <dt>相位<span class="en">phase</span></dt>
+          <dd>振幅作为复数时的角度。单独改它不影响任何测量概率，
+          但两个态叠在一起时会产生干涉 —— 这才是它真正起作用的地方。</dd>
+
+          <dt>纠缠<span class="en">entanglement</span></dt>
+          <dd>两个比特的状态无法分开描述，只能作为一个整体写。
+          特征是它们的约化态变成混态：布洛赫箭头缩进球心。</dd>
+
+          <dt>测量坍缩<span class="en">collapse</span></dt>
+          <dd>测量让叠加态随机跳到一个确定结果，而且不可逆。
+          跳到哪个结果由振幅决定。</dd>
+
+          <dt>退相干<span class="en">decoherence</span></dt>
+          <dd>量子态和环境发生纠缠，导致它"看起来像"一个经典的概率混合。
+          表现就是布洛赫箭头往球心收缩。</dd>
+
+          <dt>布洛赫球<span class="en">Bloch sphere</span></dt>
+          <dd>单比特纯态的几何表示。球面上每个点对应一个态：
+          北极是 <code>|0⟩</code>，南极是 <code>|1⟩</code>，球心是完全混态。</dd>
+        </dl>
+      </details>
+    </div>
+
+    <div class="card">
+      <h2>当前态</h2>
+      <div id="staterep"></div>
+      <div class="grid2" style="margin-top:13px">
+        <div class="kv"><span>θ 极角</span><span id="vtheta">0°</span></div>
+        <div class="kv"><span>φ 方位角</span><span id="vphi">0°</span></div>
+        <div class="kv"><span>|r| 长度</span><span id="vlen">1.000</span></div>
+        <div class="kv"><span>纯度</span><span id="vpur">1.000</span></div>
+      </div>
+      <div class="kv" style="margin-top:5px"><span>r&#8407; 矢量</span><span id="vr">(0.000, 0.000, 1.000)</span></div>
+      <div class="barwrap">
+        <div class="barlabel"><span>P(|0⟩)</span><b id="vp0">100.0%</b></div>
+        <div class="bar p0"><i id="bp0"></i></div>
+      </div>
+      <div class="barwrap">
+        <div class="barlabel"><span>P(|1⟩)</span><b id="vp1">0.0%</b></div>
+        <div class="bar p1"><i id="bp1"></i></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>直接设定态</h2>
+      <div class="slider">
+        <label>θ <b id="ltheta">0°</b></label>
+        <input type="range" id="stheta" min="0" max="180" step="1" value="0">
+      </div>
+      <div class="slider">
+        <label>φ <b id="lphi">0°</b></label>
+        <input type="range" id="sphi" min="0" max="360" step="1" value="0">
+      </div>
+      <div class="btnrow">
+        <button id="b0" class="hot">|0⟩</button>
+        <button id="b1">|1⟩</button>
+        <button id="bp">|+⟩</button>
+        <button id="bm">|−⟩</button>
+        <button id="bi">|+i⟩</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>量子门</h2>
+      <div class="btnrow" style="margin-bottom:7px">
+        <button class="gate" data-gate="X">X</button>
+        <button class="gate" data-gate="Y">Y</button>
+        <button class="gate" data-gate="Z">Z</button>
+      </div>
+      <div class="btnrow">
+        <button class="gate" data-gate="H">H</button>
+        <button class="gate" data-gate="S">S</button>
+        <button class="gate" data-gate="T">T</button>
+      </div>
+      <div class="note">每个门就是让布洛赫矢量绕某根轴转一个角。门是酉的，所以箭头长度不变。</div>
+    </div>
+
+    <div class="card">
+      <h2>绕任意轴旋转</h2>
+      <div class="slider">
+        <label>旋转角 α <b id="lalpha">90°</b></label>
+        <input type="range" id="salpha" min="-360" max="360" step="5" value="90">
+      </div>
+      <div class="btnrow">
+        <button class="gate" id="rx">R<sub>x</sub></button>
+        <button class="gate" id="ry">R<sub>y</sub></button>
+        <button class="gate" id="rz">R<sub>z</sub></button>
+      </div>
+      <div class="note">试 α = 360°：箭头回到原处。布洛赫球看不到全局相位——转 2π 时波函数其实变成了 −|ψ⟩，但球上一点没动。</div>
+    </div>
+
+    <div class="card">
+      <h2>拉比振荡</h2>
+      <div class="slider">
+        <label>Ω 拉比频率 <b id="lom">6.0</b></label>
+        <input type="range" id="som" min="0" max="20" step="0.5" value="6">
+      </div>
+      <div class="slider">
+        <label>Δ 失谐 <b id="ldel">0.0</b></label>
+        <input type="range" id="sdel" min="-10" max="10" step="0.5" value="0">
+      </div>
+      <div class="btnrow">
+        <button id="brun" class="hot">▶ 开始演化</button>
+        <button id="breset" class="danger">重置</button>
+      </div>
+      <canvas id="p1chart" class="plot" style="height:112px;margin-top:11px"></canvas>
+      <div class="note">Δ = 0 时在 |0⟩ 和 |1⟩ 间完整来回；Δ ≠ 0 时振幅变小、频率变快。</div>
+    </div>
+
+    <div class="card mix">
+      <h2>退相干 / 弛豫</h2>
+      <div class="slider">
+        <label>T₁ 能量弛豫 <b id="lt1">∞</b></label>
+        <input type="range" id="st1" min="0" max="20" step="0.5" value="0">
+      </div>
+      <div class="slider">
+        <label>T<sub>φ</sub> 纯退相位 <b id="ltphi">∞</b></label>
+        <input type="range" id="stphi" min="0" max="20" step="0.5" value="0">
+      </div>
+      <div class="btnrow">
+        <button id="bdephase" class="purple">退相位 T₁=∞</button>
+        <button id="bthermal" class="purple">弛豫 T₁=2</button>
+        <button id="bclean" class="danger">关掉</button>
+      </div>
+      <div class="kv" style="margin-top:11px"><span>T₂ 相干时间</span><span id="vt2">∞</span></div>
+      <div class="note">退相干 = 箭头往球心缩。缩到球心就是完全混态，量子信息一点都不剩。
+      约束 1/T₂ = 1/(2T₁) + 1/T<sub>φ</sub>。</div>
+    </div>
+
+    <div class="card">
+      <h2>测量</h2>
+      <div class="btnrow">
+        <button id="bmeas" class="hot">测量一次</button>
+        <button id="bstat">统计 2000 次</button>
+      </div>
+      <div class="result" id="mres"></div>
+      <div class="note">测量后箭头跳到极点。横向相干性 r<sub>x</sub>, r<sub>y</sub> 全部被抹掉，只剩 r<sub>z</sub> 决定结果。</div>
+    </div>
+
+    <div class="card">
+      <h2>计算记录</h2>
+      <div class="log" id="blochlog"></div>
+      <div class="note">倒序排列，最近的操作在最上面。每条都记了 r 矢量和波函数振幅的变化。</div>
+    </div>
+
+  </div>
+</div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════
+     面板 2 · 量子线路
+     ═══════════════════════════════════════════════════════════ -->
+<section class="panel" id="panel-circuit" role="tabpanel" aria-labelledby="tab-circuit">
+<div class="split">
+
+  <div class="side" style="border-left:0;border-right:1px solid var(--border);flex:1 1 58%">
+
+    <div class="card">
+      <h2>比特数 · 预设</h2>
+      <div class="toolgrid" style="margin-bottom:8px" id="qubitchoice">
+        <span style="font-size:12px;color:var(--text-3);margin-right:2px">比特</span>
+        <button data-n="1">1</button>
+        <button data-n="2" class="on">2</button>
+        <button data-n="3">3</button>
+        <button data-n="4">4</button>
+        <span class="sep"></span>
+        <button class="small" data-preset="bell">Bell</button>
+        <button class="small" data-preset="ghz3">GHZ(3)</button>
+        <button class="small" data-preset="ghz4">GHZ(4)</button>
+        <button class="small" data-preset="dense">超密集编码</button>
+        <button class="small" data-preset="allh">全 H</button>
+        <span class="sep"></span>
+        <button id="bclear" class="danger small">清空</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>门工具栏</h2>
+      <div class="toolgrid" id="tools">
+        <button data-tool="H" class="on">H</button>
+        <button data-tool="X">X</button>
+        <button data-tool="Y">Y</button>
+        <button data-tool="Z">Z</button>
+        <button data-tool="S">S</button>
+        <button data-tool="T">T</button>
+        <button data-tool="Sdg">S†</button>
+        <button data-tool="Tdg">T†</button>
+        <span class="sep"></span>
+        <button data-tool="Rx">Rx</button>
+        <button data-tool="Ry">Ry</button>
+        <button data-tool="Rz">Rz</button>
+        <span class="sep"></span>
+        <button data-tool="CNOT">CNOT</button>
+        <button data-tool="CZ">CZ</button>
+        <button data-tool="SWAP">SWAP</button>
+        <span class="sep"></span>
+        <button data-tool="M">M</button>
+        <button data-tool="erase">橡皮</button>
+      </div>
+      <div class="slider" style="margin-top:11px">
+        <label>旋转角 θ（Rx / Ry / Rz 用）<b id="lthetac">90°</b></label>
+        <input type="range" id="sthetac" min="-360" max="360" step="5" value="90">
+      </div>
+      <div class="note" id="toolhint">点格子放门。CNOT / CZ / SWAP 要点两格，先点的是控制位。再点一次已有的门删掉，右键也行。</div>
+    </div>
+
+    <div class="card">
+      <h2>线路</h2>
+      <div class="circuitwrap"><div id="circuit"></div></div>
+      <div class="warn" id="warn"></div>
+    </div>
+
+  </div>
+
+  <div class="side">
+
+    <div class="card guide">
+      <h2>怎么用</h2>
+      <ol class="steps">
+        <li>左边工具栏选一个门（默认是 <b>H</b>）。</li>
+        <li>在线路网格的<b>空格上点一下</b>，门就放上去了。</li>
+        <li>右边立刻出结果，「这一步在算什么」会写清楚刚才那步的运算。</li>
+        <li>拖<b>步骤滑块</b>，可以回到任意时刻看中间态。</li>
+      </ol>
+      <div class="note"><b>CNOT / CZ / SWAP</b> 要点两格：先点控制位（画圆点），再点目标位（画 ⊕）。
+      再点一次已有的门就删掉。顶部预设按钮可以直接加载 Bell 态等经典线路。</div>
+
+      <details class="gloss">
+        <summary>术语小抄 —— 看不懂的词点这里</summary>
+        <dl>
+          <dt>振幅<span class="en">amplitude</span></dt>
+          <dd>每个基态 <code>|00⟩</code>、<code>|01⟩</code>… 前面的复数系数。
+          测量到它的概率 = 模平方，也就是 <code>|振幅|²</code>。右边「振幅」表里列的就是它们。</dd>
+
+          <dt>叠加<span class="en">superposition</span></dt>
+          <dd>同时"是"多个基态的相干组合。注意不是"各占几成概率"，
+          而是一个确定的新状态 —— 概率是后来测量才出现的。</dd>
+
+          <dt>相位<span class="en">phase</span></dt>
+          <dd>振幅作为复数时的角度。概率分布图上<b>柱子的颜色</b>画的就是它。
+          单独改相位不影响测量概率，但会影响后续的干涉。</dd>
+
+          <dt>纠缠<span class="en">entanglement</span></dt>
+          <dd>多个比特无法分开描述，只能整体描述。
+          判据就在右边：只要某个比特的布洛赫箭头缩进球心（<code>|r| &lt; 1</code>），它就纠缠了。</dd>
+
+          <dt>约化密度矩阵<span class="en">reduced density matrix</span></dt>
+          <dd>只看其中一个比特时，它的状态。纠缠态的单比特约化态一定是混态，
+          所以用波函数写不出来，只能用密度矩阵 ρ。</dd>
+
+          <dt>纠缠熵<span class="en">entropy of entanglement</span></dt>
+          <dd>衡量纠缠有多强。<code>S = 0</code> 表示不纠缠，<code>S = 1 bit</code> 表示该比特与其余部分最大纠缠。</dd>
+
+          <dt>测量坍缩<span class="en">collapse</span></dt>
+          <dd>测量让叠加态随机跳到一个确定结果，不可逆。
+          Bell 态测量一个比特，另一个比特会立刻确定下来 —— 这就是纠缠的表现。</dd>
+        </dl>
+      </details>
+    </div>
+
+    <div class="card">
+      <h2>这一步在算什么</h2>
+      <div class="stepnav">
+        <button id="stepPrev">◀</button>
+        <input type="range" id="stepRange" min="0" max="0" value="0">
+        <button id="stepNext">▶</button>
+        <span class="stepcount" id="stepcount">0 / 0</span>
+      </div>
+      <div class="stepinfo" id="stepinfo"></div>
+    </div>
+
+    <div class="card">
+      <h2>概率分布</h2>
+      <canvas id="probchart" class="plot" style="height:172px"></canvas>
+      <div class="note">柱高 = 测量概率，<b>颜色 = 相位</b>（色轮一圈 = 2π）。</div>
+    </div>
+
+    <div class="card">
+      <h2>振幅</h2>
+      <div class="ampl" id="ampl"></div>
+    </div>
+
+    <div class="card">
+      <h2>单比特约化态</h2>
+      <div class="blochrow" id="blochrow"></div>
+      <div class="note">纠缠判据：只要某个箭头缩进球内（<b>|r| &lt; 1</b>），它就和别的比特纠缠了。
+      全都在球面上 = 完全可分离的乘积态。</div>
+    </div>
+
+    <div class="card">
+      <h2>纠缠熵</h2>
+      <div id="entropy"></div>
+      <div class="note">S = −Tr(ρ log₂ ρ)，单位比特。乘积态 S = 0，最大纠缠 S = 1。</div>
+    </div>
+
+    <div class="card">
+      <h2>测量采样</h2>
+      <div class="btnrow">
+        <button id="bshot1" class="hot">跑 1 次</button>
+        <button id="bshot100">跑 1000 次</button>
+      </div>
+      <div class="result" id="shotres"></div>
+    </div>
+
+  </div>
+</div>
+</section>
+
+</main>
+
+<script>
+"use strict";
+
+/* ═══════════════════════════════════════════════════════════
+   共享工具
+   ═══════════════════════════════════════════════════════════ */
+const $  = id => document.getElementById(id);
+const $$ = sel => Array.from(document.querySelectorAll(sel));
+const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
+const S2 = Math.SQRT1_2;
+
+const c      = (re, im = 0) => ({ re, im });
+const cadd   = (a, b) => c(a.re + b.re, a.im + b.im);
+const cmul   = (a, b) => c(a.re * b.re - a.im * b.im, a.re * b.im + a.im * b.re);
+const cconj  = a => c(a.re, -a.im);
+const cscale = (a, s) => c(a.re * s, a.im * s);
+const cabs2  = a => a.re * a.re + a.im * a.im;
+const cabs   = a => Math.sqrt(cabs2(a));
+const carg   = a => Math.atan2(a.im, a.re);
+const cexp   = t => c(Math.cos(t), Math.sin(t));
+
+const fmtN = x => (Math.abs(x) < 5e-4 ? "0" : x.toFixed(3));
+function fmtC(re, im) {
+  if (Math.abs(im) < 5e-4) return fmtN(re);
+  return `${fmtN(re)} ${im < 0 ? "−" : "+"} ${Math.abs(im).toFixed(3)}i`;
+}
+const fmtT = v => (v <= 0 ? "∞" : v.toFixed(1) + " s");
+
+/* ------------------------------------------------------------
+   单比特门的矩阵（复数）—— 两个面板共用同一份定义：
+   布洛赫球用它把矩阵乘法逐项写进「计算记录」，
+   量子线路用它做态矢量的实际演化。以前两边各写一遍，容易改漏。
+   ------------------------------------------------------------ */
+const BASE = {
+  H:    [[c(S2), c(S2)], [c(S2), c(-S2)]],
+  X:    [[c(0), c(1)], [c(1), c(0)]],
+  Y:    [[c(0), c(0, -1)], [c(0, 1), c(0)]],
+  Z:    [[c(1), c(0)], [c(0), c(-1)]],
+  S:    [[c(1), c(0)], [c(0), c(0, 1)]],
+  T:    [[c(1), c(0)], [c(0), cexp(Math.PI / 4)]],
+  Sdg:  [[c(1), c(0)], [c(0), c(0, -1)]],
+  Tdg:  [[c(1), c(0)], [c(0, cexp(-Math.PI / 4))]]
+};
+
+/* ═══════════════════════════════════════════════════════════
+   面板 1 · 单比特布洛赫球
+   ═══════════════════════════════════════════════════════════ */
+const Bloch = (function () {
+
+let r = [0, 0, 1];              // 状态 = 布洛赫矢量，|r| ≤ 1
+let trail = [];
+let Omega = 6, Delta = 0;
+let T1 = 0, Tphi = 0;           // 0 表示 ∞
+let running = false, lastT = 0;
+let draggingSlider = false;
+let history = [], tNow = 0, showCoherence = false;
+
+/* ---------- 三维旋转 ---------- */
+function rotVec(v, n, a) {
+  const L = Math.hypot(n[0], n[1], n[2]) || 1;
+  const nx = n[0] / L, ny = n[1] / L, nz = n[2] / L;
+  const co = Math.cos(a), si = Math.sin(a);
+  const dot = v[0] * nx + v[1] * ny + v[2] * nz;
+  const cr = [ny * v[2] - nz * v[1], nz * v[0] - nx * v[2], nx * v[1] - ny * v[0]];
+  return [
+    v[0] * co + cr[0] * si + nx * dot * (1 - co),
+    v[1] * co + cr[1] * si + ny * dot * (1 - co),
+    v[2] * co + cr[2] * si + nz * dot * (1 - co)
+  ];
+}
+function clipSphere(v) {
+  const L = Math.hypot(v[0], v[1], v[2]);
+  if (L <= 1 || L < 1e-12) return v;
+  return [v[0] / L, v[1] / L, v[2] / L];
+}
+
+const GATES = {
+  X: { axis: [1, 0, 0], angle: Math.PI },
+  Y: { axis: [0, 1, 0], angle: Math.PI },
+  Z: { axis: [0, 0, 1], angle: Math.PI },
+  H: { axis: [S2, 0, S2], angle: Math.PI },
+  S: { axis: [0, 0, 1], angle: Math.PI / 2 },
+  T: { axis: [0, 0, 1], angle: Math.PI / 4 }
+};
+
+function ampsFromR(v) {
+  const th = Math.acos(clamp(v[2], -1, 1));
+  const ph = Math.atan2(v[1], v[0]);
+  const a = Math.cos(th / 2), b = Math.sin(th / 2);
+  return { a: c(a), b: c(b * Math.cos(ph), b * Math.sin(ph)) };
+}
+
+/* ---------- 计算记录 ---------- */
+const B_WHY = {
+  X: '绕 x 轴转 180°：把北极直接翻到南极',
+  Y: '绕 y 轴转 180°：翻转比特，同时带上一个相位',
+  Z: '绕 z 轴转 180°：只给 |1⟩ 加 −1 相位，测量概率完全不变',
+  H: '绕 (x+z)/√2 轴转 180°：把 |0⟩ 送到赤道上的 x 轴，这就是叠加态',
+  S: '绕 z 轴转 90°：给 |1⟩ 乘 i，是 Z 门的平方根',
+  T: '绕 z 轴转 45°：给 |1⟩ 乘 e^(iπ/4)，是 S 门的平方根'
+};
+
+/* 门的矩阵：直接引用共享定义里对应的那几项（X Y Z H S T 在布洛赫球上都是定轴旋转） */
+const B_GATE_M = { X: BASE.X, Y: BASE.Y, Z: BASE.Z, H: BASE.H, S: BASE.S, T: BASE.T };
+const B_GATE_TXT = {
+  X: '⎡  0     1   ⎤\n⎣  1     0   ⎦',
+  Y: '⎡  0    −i   ⎤\n⎣  i     0   ⎦',
+  Z: '⎡  1     0   ⎤\n⎣  0    −1   ⎦',
+  H: '⎡ 0.707  0.707 ⎤\n⎣ 0.707 −0.707 ⎦',
+  S: '⎡  1     0   ⎤\n⎣  0     i   ⎦',
+  T: '⎡  1     0     ⎤\n⎣  0   e^(iπ/4) ⎦'
+};
+
+// 3 显示成 "3"，i 显示成 "i"，−i 显示成 "−i"
+function fmtU(u) {
+  if (Math.abs(u.im) < 5e-5) return fmtN(u.re);
+  if (Math.abs(u.re) < 5e-5) {
+    if (Math.abs(u.im - 1) < 1e-9) return "i";
+    if (Math.abs(u.im + 1) < 1e-9) return "−i";
+    return u.im.toFixed(3) + "i";
+  }
+  return fmtC(u.re, u.im);
+}
+
+/* 门的 2×2 矩阵作用在 (α, β) 上 */
+function gateApply(type, a, b) {
+  const M = B_GATE_M[type];
+  if (!M) return null;
+  return [
+    cadd(cmul(M[0][0], a), cmul(M[0][1], b)),
+    cadd(cmul(M[1][0], a), cmul(M[1][1], b))
+  ];
+}
+
+/* 把 α' = u00·α + u01·β 逐项写出来 */
+function expandGate(type, a, b) {
+  const M = B_GATE_M[type];
+  const res = gateApply(type, a, b);
+  if (!M || !res) return "";
+  const term = (u, x) => `${fmtU(u)} × ${fmtC(x.re, x.im)}`;
+  return `<div class="mx">${B_GATE_TXT[type]}</div>` +
+         `<div class="step2">` +
+         `α' = ${term(M[0][0], a)} + ${term(M[0][1], b)} = ${fmtC(res[0].re, res[0].im)}<br>` +
+         `β' = ${term(M[1][0], a)} + ${term(M[1][1], b)} = ${fmtC(res[1].re, res[1].im)}` +
+         `</div>`;
+}
+
+const logs = [];
+const rStr = v => `(${v[0].toFixed(3)}, ${v[1].toFixed(3)}, ${v[2].toFixed(3)})`;
+const ketStr = v => {
+  const { a, b } = ampsFromR(v);
+  return `${fmtC(a.re, a.im)}|0⟩ + ${fmtC(b.re, b.im)}|1⟩`;
+};
+
+function pushLog(cls, op, calc, why) {
+  logs.unshift({ cls, op, calc, why });
+  if (logs.length > 40) logs.pop();
+  const el = $("blochlog");
+  if (!el) return;
+  el.innerHTML = logs.map((e, i) =>
+    `<div class="entry ${e.cls}"><span class="n">${logs.length - i}</span>` +
+    `<span class="op">${e.op}</span>` +
+    `<div class="calc">${e.calc}${e.why ? `<span class="why">${e.why}</span>` : ""}</div></div>`
+  ).join("");
+}
+
+function logChange(cls, op, before, why, gateType) {
+  let calc = "";
+  if (gateType && B_GATE_M[gateType]) {
+    const ba = ampsFromR(before);
+    calc += expandGate(gateType, ba.a, ba.b);
+  }
+  calc +=
+    `<span class="from">r　</span><span class="from">${rStr(before)}</span> → ` +
+    `<span class="to">${rStr(r)}</span><br>` +
+    `<span class="from">|ψ⟩　</span><span class="from">${ketStr(before)}</span><br>` +
+    `<span class="from">　　　</span><span class="to">${ketStr(r)}</span>`;
+  pushLog(cls, op, calc, why);
+}
+
+/* ---------- 布洛赫方程 dr/dt = Ω×r + 弛豫 ---------- */
+function rates() {
+  const g1 = T1 > 0 ? 1 / T1 : 0;
+  const gp = Tphi > 0 ? 1 / Tphi : 0;
+  return { g1, g2: g1 / 2 + gp };
+}
+function drdt(v) {
+  const { g1, g2 } = rates();
+  return [
+    -Delta * v[1] - g2 * v[0],
+    Delta * v[0] - Omega * v[2] - g2 * v[1],
+    Omega * v[1] - g1 * (v[2] - 1)
+  ];
+}
+function stepRK4(v, dt) {
+  const add = (u, k, h) => [u[0] + k[0] * h, u[1] + k[1] * h, u[2] + k[2] * h];
+  const k1 = drdt(v);
+  const k2 = drdt(add(v, k1, dt / 2));
+  const k3 = drdt(add(v, k2, dt / 2));
+  const k4 = drdt(add(v, k3, dt));
+  const out = [0, 0, 0];
+  for (let i = 0; i < 3; i++) out[i] = v[i] + (dt / 6) * (k1[i] + 2 * k2[i] + 2 * k3[i] + k4[i]);
+  return clipSphere(out);
+}
+
+/* ---------- 画布 ---------- */
+const ball = $("ball");
+const ctx = ball.getContext("2d");
+let W = 0, H = 0, az = -0.62, el = 0.38, zoom = 1, cam = null;
+let dirty = true;          // 需要重画球体
+let camStale = true;       // 视角/尺寸变了，需要重算投影
+
+/* 只有状态、视角或显示尺寸真的变了才置脏；停下来不动的球不必每帧重画 */
+const touch = () => { dirty = true; camStale = true; };
+
+function resize() {
+  const rect = ball.getBoundingClientRect();
+  const dpr = window.devicePixelRatio || 1;
+  const w = Math.max(1, Math.round(rect.width * dpr));
+  const h = Math.max(1, Math.round(rect.height * dpr));
+  if (ball.width === w && ball.height === h && W === rect.width && H === rect.height) return;
+  ball.width = w;
+  ball.height = h;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  W = rect.width; H = rect.height;
+  touch();
+}
+function updateCam() {
+  const ca = Math.cos(az), sa = Math.sin(az), ce = Math.cos(el), se = Math.sin(el);
+  cam = {
+    u: [-sa, ca, 0], v: [-se * ca, -se * sa, ce], n: [ce * ca, ce * sa, se],
+    scale: Math.min(W, H) * 0.33 * zoom, cx: W / 2, cy: H / 2
+  };
+  camStale = false;
+}
+function proj(p) {
+  const [x, y, z] = p;
+  const sx = x * cam.u[0] + y * cam.u[1] + z * cam.u[2];
+  const sy = x * cam.v[0] + y * cam.v[1] + z * cam.v[2];
+  const d  = x * cam.n[0] + y * cam.n[1] + z * cam.n[2];
+  return [cam.cx + sx * cam.scale, cam.cy - sy * cam.scale, d];
+}
+const spherePoint = (t, p) => [Math.sin(t) * Math.cos(p), Math.sin(t) * Math.sin(p), Math.cos(t)];
+
+function line3(pts, style, w) {
+  ctx.strokeStyle = style; ctx.lineWidth = w;
+  ctx.beginPath();
+  pts.forEach((p, i) => { const [x, y] = proj(p); i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); });
+  ctx.stroke();
+}
+function sphereLine(pts, rgb, w, base) {
+  ctx.lineWidth = w;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const a = proj(pts[i]), b = proj(pts[i + 1]);
+    const d = (a[2] + b[2]) / 2;
+    const k = 0.45 + 0.55 * (1 - (d + 1) / 2);
+    ctx.strokeStyle = `rgba(${rgb},${(base * k).toFixed(3)})`;
+    ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); ctx.stroke();
+  }
+}
+function circlePts(n, fn) {
+  const p = [];
+  for (let i = 0; i <= n; i++) p.push(fn(i / n * Math.PI * 2));
+  return p;
+}
+function arrowTo(p, color) {
+  const [x0, y0] = proj([0, 0, 0]);
+  const [x1, y1] = proj(p);
+  const ang = Math.atan2(y1 - y0, x1 - x0);
+  const len = Math.hypot(x1 - x0, y1 - y0);
+  if (len < 2) return;
+
+  ctx.save();
+  ctx.lineCap = "round";
+
+  // 外发光主笔
+  ctx.shadowColor = color;
+  ctx.shadowBlur = 16;
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke();
+
+  // 高光芯线（够长时才画）
+  if (len > 34) {
+    ctx.shadowBlur = 0;
+    ctx.strokeStyle = "rgba(255,255,255,0.38)";
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke();
+  }
+
+  // 箭头
+  ctx.shadowColor = color;
+  ctx.shadowBlur = 13;
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  ctx.moveTo(x1, y1);
+  ctx.lineTo(x1 - 13 * Math.cos(ang - 0.42), y1 - 13 * Math.sin(ang - 0.42));
+  ctx.lineTo(x1 - 13 * Math.cos(ang + 0.42), y1 - 13 * Math.sin(ang + 0.42));
+  ctx.closePath(); ctx.fill();
+
+  // 端点亮点
+  ctx.beginPath(); ctx.arc(x1, y1, 4.5, 0, Math.PI * 2); ctx.fill();
+  ctx.shadowBlur = 0;
+  ctx.fillStyle = "rgba(255,255,255,0.9)";
+  ctx.beginPath(); ctx.arc(x1, y1, 1.7, 0, Math.PI * 2); ctx.fill();
+
+  ctx.restore();
+
+  // 原点
+  ctx.beginPath(); ctx.arc(x0, y0, 2.4, 0, Math.PI * 2);
+  ctx.fillStyle = "rgba(150,172,205,0.45)"; ctx.fill();
+}
+function label(p, text, color, font) {
+  const [x, y] = proj(p);
+  ctx.fillStyle = color;
+  ctx.font = font || "600 15px Cambria, Georgia, serif";
+  ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  ctx.fillText(text, x, y);
+}
+
+function draw() {
+  if (camStale) updateCam();
+  ctx.clearRect(0, 0, W, H);
+  if (W < 2 || H < 2) return;
+
+  const R = cam.scale, cx = cam.cx, cy = cam.cy;
+  const L = Math.hypot(r[0], r[1], r[2]);
+  const pure = L > 0.995;
+
+  // ── 球体：玻璃质感，纯态偏蓝、混态偏紫 ──
+  const t = pure ? [72, 124, 205] : [146, 110, 216];
+  const bg = ctx.createRadialGradient(cx - R * 0.34, cy - R * 0.40, R * 0.05, cx, cy, R * 1.02);
+  bg.addColorStop(0,    `rgba(${t[0]},${t[1]},${t[2]},0.19)`);
+  bg.addColorStop(0.55, `rgba(${t[0] * 0.6 | 0},${t[1] * 0.6 | 0},${t[2] * 0.7 | 0},0.09)`);
+  bg.addColorStop(1,    "rgba(8,12,24,0.015)");
+  ctx.fillStyle = bg;
+  ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.fill();
+
+  // ── 网格 ──
+  for (const lat of [-60, -30, 30, 60]) {
+    const th = (90 - lat) * Math.PI / 180;
+    sphereLine(circlePts(72, u => spherePoint(th, u)), "110,130,165", 0.9, 0.32);
+  }
+  for (let lon = 0; lon < 180; lon += 30) {
+    sphereLine(circlePts(72, u => spherePoint(u, lon * Math.PI / 180)), "110,130,165", 0.9, 0.24);
+  }
+  // 赤道最后画，压在经线之上
+  sphereLine(circlePts(72, u => spherePoint(Math.PI / 2, u)), "100,170,255", 1.6, 0.62);
+
+  // ── 外轮廓（带柔光） ──
+  ctx.save();
+  ctx.shadowColor = "rgba(77,159,255,0.30)";
+  ctx.shadowBlur = 20;
+  ctx.strokeStyle = "rgba(126,162,218,0.32)";
+  ctx.lineWidth = 1.2;
+  ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.stroke();
+  ctx.restore();
+
+  // ── 坐标轴 ──
+  ctx.setLineDash([3, 4]);
+  for (const [a, b] of [
+    [[-1.16, 0, 0], [1.16, 0, 0]],
+    [[0, -1.16, 0], [0, 1.16, 0]],
+    [[0, 0, -1.16], [0, 0, 1.16]]
+  ]) line3([a, b], "rgba(120,140,175,0.28)", 1);
+  ctx.setLineDash([]);
+
+  // ── 极点标签 ──
+  ctx.save();
+  ctx.shadowColor = "rgba(77,159,255,0.5)"; ctx.shadowBlur = 10;
+  label([0, 0, 1.30], "|0⟩", "#9ed0ff");
+  ctx.restore();
+  ctx.save();
+  ctx.shadowColor = "rgba(240,85,125,0.5)"; ctx.shadowBlur = 10;
+  label([0, 0, -1.30], "|1⟩", "#ff9db0");
+  ctx.restore();
+  label([1.28, 0, 0], "x", "#5f6b7f", "500 12px Consolas, monospace");
+  label([0, 1.28, 0], "y", "#5f6b7f", "500 12px Consolas, monospace");
+
+  // ── 演化轨迹 ──
+  if (trail.length > 1) {
+    for (let i = 0; i < trail.length - 1; i++) {
+      const a = proj(trail[i].map(x => x * 1.002));
+      const b = proj(trail[i + 1].map(x => x * 1.002));
+      const f = i / trail.length;
+      ctx.strokeStyle = `rgba(255,180,84,${(0.08 + 0.52 * f).toFixed(3)})`;
+      ctx.lineWidth = 1.2 + 0.9 * f;
+      ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); ctx.stroke();
+    }
+  }
+
+  // ── 到赤道面的投影虚线 ──
+  const [ox, oy] = proj([0, 0, 0]);
+  const [px, py] = proj([r[0], r[1], 0]);
+  const [tx, ty] = proj(r);
+  ctx.setLineDash([4, 4]);
+  ctx.strokeStyle = "rgba(240,85,125,0.28)";
+  ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(tx, ty); ctx.lineTo(px, py); ctx.lineTo(ox, oy); ctx.stroke();
+  ctx.setLineDash([]);
+
+  // ── 态矢量 ──
+  const col = pure ? "#f0557d"
+            : L < 0.02 ? "#6b7688"
+            : `rgb(${Math.round(240 - 62 * L)}, ${Math.round(85 + 58 * (1 - L))}, ${Math.round(125 + 66 * (1 - L))})`;
+  arrowTo(r, col);
+
+  // 混态时在球心画一个呼吸的小点，暗示"信息漏掉了"
+  if (L < 0.995) {
+    ctx.beginPath(); ctx.arc(ox, oy, 3, 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(167,139,250,${(0.20 + 0.35 * (1 - L)).toFixed(3)})`;
+    ctx.fill();
+  }
+}
+
+/* ---------- 曲线 ---------- */
+const chart = $("p1chart"), cctx = chart.getContext("2d");
+function resizeChart() {
+  const rect = chart.getBoundingClientRect();
+  const dpr = window.devicePixelRatio || 1;
+  chart.width = Math.max(1, Math.round(rect.width * dpr));
+  chart.height = Math.max(1, Math.round(rect.height * dpr));
+  cctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  chart._w = rect.width; chart._h = rect.height;
+}
+function drawChart() {
+  const w = chart._w || 300, h = chart._h || 112;
+  cctx.clearRect(0, 0, w, h);
+  if (w < 2) return;
+
+  cctx.font = "10px Consolas, monospace";
+  for (const p of [0, 0.5, 1]) {
+    const yy = h - 12 - p * (h - 26);
+    cctx.strokeStyle = p === 0 ? "rgba(120,140,175,0.24)" : "rgba(120,140,175,0.10)";
+    cctx.setLineDash(p === 0 ? [] : [2, 4]);
+    cctx.beginPath(); cctx.moveTo(30, yy + .5); cctx.lineTo(w - 8, yy + .5); cctx.stroke();
+    cctx.setLineDash([]);
+    cctx.fillStyle = "#4f5a70"; cctx.textAlign = "right"; cctx.textBaseline = "middle";
+    cctx.fillText(p.toFixed(1), 27, yy);
+  }
+
+  if (history.length < 2) {
+    cctx.textAlign = "center"; cctx.fillStyle = "#3a4557";
+    cctx.font = "12px 'Microsoft YaHei', sans-serif";
+    cctx.fillText("点「开始演化」后显示 P(|1⟩) 随时间变化", w / 2, h / 2 - 2);
+    return;
+  }
+
+  const tMax = Math.max(history[history.length - 1].t, 1e-6);
+  const X = t => 30 + (t / tMax) * (w - 38);
+  const Y = p => h - 12 - p * (h - 26);
+  const last = history[history.length - 1];
+
+  if (showCoherence) {
+    cctx.beginPath();
+    cctx.moveTo(X(history[0].t), Y(history[0].r));
+    for (const pt of history) cctx.lineTo(X(pt.t), Y(pt.r));
+    cctx.strokeStyle = "rgba(167,139,250,0.75)"; cctx.lineWidth = 1.4;
+    cctx.setLineDash([4, 3]); cctx.stroke(); cctx.setLineDash([]);
+
+    cctx.fillStyle = "#a78bfa"; cctx.font = "10px 'Microsoft YaHei', sans-serif";
+    cctx.textAlign = "left"; cctx.textBaseline = "top";
+    cctx.fillText("虚线 = |r| 相干性", 34, 4);
+  }
+
+  const path = () => {
+    cctx.beginPath();
+    cctx.moveTo(X(history[0].t), Y(history[0].p));
+    for (const pt of history) cctx.lineTo(X(pt.t), Y(pt.p));
+  };
+
+  // 曲线下方的渐变填充
+  path();
+  cctx.lineTo(X(last.t), h - 12);
+  cctx.lineTo(X(history[0].t), h - 12);
+  cctx.closePath();
+  const fill = cctx.createLinearGradient(0, 12, 0, h - 12);
+  fill.addColorStop(0, "rgba(255,180,84,0.26)");
+  fill.addColorStop(1, "rgba(255,180,84,0.005)");
+  cctx.fillStyle = fill;
+  cctx.fill();
+
+  // 发光曲线
+  cctx.save();
+  cctx.shadowColor = "rgba(255,180,84,0.65)";
+  cctx.shadowBlur = 9;
+  path();
+  cctx.strokeStyle = "#ffb454"; cctx.lineWidth = 1.8; cctx.stroke();
+  cctx.restore();
+
+  // 当前点
+  cctx.save();
+  cctx.shadowColor = "#ffd479"; cctx.shadowBlur = 13;
+  cctx.beginPath(); cctx.arc(X(last.t), Y(last.p), 3.2, 0, Math.PI * 2);
+  cctx.fillStyle = "#ffd479"; cctx.fill();
+  cctx.restore();
+}
+
+/* ---------- UI ---------- */
+function updateUI() {
+  touch();                                  // 数字面板变了 ⇒ 球体也得重画
+  const [rx, ry, rz] = r;
+  const len = Math.hypot(rx, ry, rz);
+  const pure = len > 0.9995;
+  const p0 = (1 + rz) / 2, p1 = 1 - p0;
+  const th = Math.acos(clamp(rz, -1, 1));
+  let ph = Math.atan2(ry, rx);
+  if (ph < 0) ph += 2 * Math.PI;
+
+  if (pure) {
+    const { a, b } = ampsFromR(r);
+    $("staterep").innerHTML =
+      `<div class="ket"><b>${fmtC(a.re, a.im)}</b>|0⟩ &nbsp;+&nbsp; <b>${fmtC(b.re, b.im)}</b>|1⟩</div>`;
+  } else {
+    const r00 = (1 + rz) / 2, r11 = (1 - rz) / 2, r01re = rx / 2, r01im = -ry / 2;
+    $("staterep").innerHTML =
+      `<div class="rho"><span class="br">ρ = </span>⎡ ${fmtN(r00)}   ${fmtC(r01re, r01im)} ⎤\n` +
+      `      ⎣ ${fmtC(r01re, -r01im)}   ${fmtN(r11)} ⎦</div>` +
+      `<div class="note" style="margin-top:3px">混态，没有单一波函数能描述它</div>`;
+  }
+
+  $("vtheta").textContent = (th * 180 / Math.PI).toFixed(1) + "°";
+  $("vphi").textContent = (ph * 180 / Math.PI).toFixed(1) + "°";
+  $("vlen").textContent = len.toFixed(3);
+  $("vpur").textContent = ((1 + len * len) / 2).toFixed(3);
+  $("vr").textContent = `(${rx.toFixed(3)}, ${ry.toFixed(3)}, ${rz.toFixed(3)})`;
+  $("vp0").textContent = (p0 * 100).toFixed(1) + "%";
+  $("vp1").textContent = (p1 * 100).toFixed(1) + "%";
+  $("bp0").style.width = (p0 * 100) + "%";
+  $("bp1").style.width = (p1 * 100) + "%";
+
+  const { g2 } = rates();
+  $("vt2").textContent = g2 === 0 ? "∞" : (1 / g2).toFixed(2) + " s";
+
+  if (!draggingSlider) {
+    const dth = Math.round(th * 180 / Math.PI), dph = Math.round(ph * 180 / Math.PI);
+    $("stheta").value = dth; $("sphi").value = dph;
+    $("ltheta").textContent = dth + "°"; $("lphi").textContent = dph + "°";
+  }
+}
+
+/* 松开鼠标/手指就结束拖动。用键盘调滑块时不该被卡住，所以只有拖动 θ/φ 才置位、
+   并且在这里复位 —— 键盘改动的值由 updateUI 同步回滑块。 */
+window.addEventListener("pointerup", e => {
+  if (e.target && (e.target.id === "stheta" || e.target.id === "sphi")) draggingSlider = false;
+});
+window.addEventListener("pointercancel", () => { draggingSlider = false; });
+
+/* ---------- 视角 ---------- */
+let mouseDown = false, lastX = 0, lastY = 0;
+ball.addEventListener("pointerdown", e => {
+  mouseDown = true; lastX = e.clientX; lastY = e.clientY;
+  ball.setPointerCapture(e.pointerId);
+});
+ball.addEventListener("pointermove", e => {
+  if (!mouseDown) return;
+  az -= (e.clientX - lastX) * 0.008;
+  el = clamp(el + (e.clientY - lastY) * 0.008, -1.45, 1.45);
+  lastX = e.clientX; lastY = e.clientY;
+  touch();
+});
+ball.addEventListener("pointerup", e => {
+  mouseDown = false;
+  try { ball.releasePointerCapture(e.pointerId); } catch (_) {}
+});
+ball.addEventListener("wheel", e => {
+  e.preventDefault();
+  zoom = clamp(zoom * (e.deltaY > 0 ? 0.92 : 1.08), 0.55, 2.2);
+  touch();
+}, { passive: false });
+
+/* ---------- 控件 ---------- */
+function stopRun() { running = false; setRunButton(); }
+function setState(th, ph, name) {
+  stopRun();
+  const before = r.slice();
+  r = [Math.sin(th) * Math.cos(ph), Math.sin(th) * Math.sin(ph), Math.cos(th)];
+  trail = [];
+  updateUI();
+  if (name) logChange("gate", name, before, "直接指定球面上的位置");
+}
+function applyRot(axis, angle, name, why, gateType) {
+  stopRun();
+  const before = r.slice();
+  r = rotVec(r, axis, angle);
+  trail = [];
+  updateUI();
+  if (name) logChange("gate", name, before, why, gateType);
+}
+
+["stheta", "sphi"].forEach(id => {
+  const el = $(id);
+  el.addEventListener("pointerdown", () => { draggingSlider = true; });
+  el.addEventListener("input", () => {
+    draggingSlider = true;
+    stopRun();
+    $("ltheta").textContent = $("stheta").value + "°";
+    $("lphi").textContent = $("sphi").value + "°";
+    setState(+$("stheta").value * Math.PI / 180, +$("sphi").value * Math.PI / 180);
+  });
+});
+
+$("b0").onclick = () => setState(0, 0, "设为 |0⟩");
+$("b1").onclick = () => setState(Math.PI, 0, "设为 |1⟩");
+$("bp").onclick = () => setState(Math.PI / 2, 0, "设为 |+⟩");
+$("bm").onclick = () => setState(Math.PI / 2, Math.PI, "设为 |−⟩");
+$("bi").onclick = () => setState(Math.PI / 2, Math.PI / 2, "设为 |+i⟩");
+
+$$("#panel-bloch [data-gate]").forEach(btn => {
+  btn.onclick = () => {
+    const g = GATES[btn.dataset.gate];
+    applyRot(g.axis, g.angle, `${btn.dataset.gate} 门`, B_WHY[btn.dataset.gate], btn.dataset.gate);
+  };
+});
+
+$("salpha").addEventListener("input", () => { $("lalpha").textContent = $("salpha").value + "°"; });
+$("rx").onclick = () => {
+  const a = +$("salpha").value;
+  applyRot([1, 0, 0], a * Math.PI / 180, `Rx(${a}°)`, "绕 x 轴旋转：箭头沿着一个绕 x 轴的圆滑动");
+};
+$("ry").onclick = () => {
+  const a = +$("salpha").value;
+  applyRot([0, 1, 0], a * Math.PI / 180, `Ry(${a}°)`, "绕 y 轴旋转：箭头沿着一个绕 y 轴的圆滑动");
+};
+$("rz").onclick = () => {
+  const a = +$("salpha").value;
+  applyRot([0, 0, 1], a * Math.PI / 180, `Rz(${a}°)`,
+    "绕 z 轴旋转：箭头在水平面上转，θ 完全不变 —— 所以它不影响任何测量概率");
+};
+
+$("som").addEventListener("input", () => { Omega = +$("som").value; $("lom").textContent = Omega.toFixed(1); });
+$("sdel").addEventListener("input", () => { Delta = +$("sdel").value; $("ldel").textContent = Delta.toFixed(1); });
+
+function setDeco(t1, tp) {
+  T1 = t1; Tphi = tp;
+  $("st1").value = t1; $("stphi").value = tp;
+  $("lt1").textContent = fmtT(t1); $("ltphi").textContent = fmtT(tp);
+  showCoherence = (t1 > 0 || tp > 0);
+}
+$("st1").addEventListener("input", () => { T1 = +$("st1").value; $("lt1").textContent = fmtT(T1); showCoherence = (T1 > 0 || Tphi > 0); });
+$("stphi").addEventListener("input", () => { Tphi = +$("stphi").value; $("ltphi").textContent = fmtT(Tphi); showCoherence = (T1 > 0 || Tphi > 0); });
+$("bdephase").onclick = () => {
+  setDeco(0, 2); trail = []; running = true; setRunButton();
+  pushLog("mix", "打开纯退相位　T_φ = 2 s",
+    `r_x 按 e^(−t/T_φ) 衰减，r_z 完全不变`,
+    "箭头会一边绕圈一边缩进球心 —— 这就是相干性正在流失，而能量没有动。");
+};
+$("bthermal").onclick = () => {
+  setDeco(2, 8); trail = []; running = true; setRunButton();
+  pushLog("mix", "打开能量弛豫　T₁ = 2 s",
+    `r_z 以 1/T₁ 的速率弛豫到 +1（平衡态 |0⟩）`,
+    "箭头会朝着北极爬，横向上同时收缩。这就是量子比特“掉能量”。");
+};
+$("bclean").onclick = () => {
+  setDeco(0, 0);
+  pushLog("mix", "关闭退相干", "T₁ = ∞，T_φ = ∞　—　回到理想的酉演化");
+};
+
+$("bmeas").onclick = () => {
+  stopRun();
+  const before = r.slice();
+  const p0 = (1 + r[2]) / 2;
+  const out = Math.random() < p0 ? 0 : 1;
+  const pThis = out === 0 ? p0 : 1 - p0;
+  r = out === 0 ? [0, 0, 1] : [0, 0, -1];
+  trail = [];
+  $("mres").textContent = `测得 |${out}⟩　（测量前 P(|${out}⟩) = ${pThis.toFixed(3)}）`;
+  updateUI();
+  logChange("meas", `测量 → |${out}⟩`, before,
+    `测到 |${out}⟩ 的概率是 ${pThis.toFixed(3)}，这一次抽中了它。横向相干性 r_x、r_y 被完全抹掉，只剩 r_z 决定结果。`);
+};
+$("bstat").onclick = () => {
+  const p0 = (1 + r[2]) / 2, Nm = 2000;
+  let n0 = 0;
+  for (let i = 0; i < Nm; i++) if (Math.random() < p0) n0++;
+  $("mres").textContent =
+    `${Nm} 次：|0⟩ ${n0} (${(n0 / Nm * 100).toFixed(1)}%)　|1⟩ ${Nm - n0} (${((Nm - n0) / Nm * 100).toFixed(1)}%)\n` +
+    `理论：${(p0 * 100).toFixed(1)}% / ${((1 - p0) * 100).toFixed(1)}%`;
+};
+
+function setRunButton() {
+  $("brun").textContent = running ? "⏸ 暂停" : "▶ 开始演化";
+  $("brun").classList.toggle("hot", !running);
+}
+$("brun").onclick = () => {
+  if (!running && history.length === 0) { tNow = 0; trail = []; }
+  running = !running;
+  lastT = 0;
+  setRunButton();
+};
+$("breset").onclick = () => {
+  stopRun();
+  r = [0, 0, 1]; history = []; tNow = 0; trail = [];
+  $("mres").textContent = "";
+  updateUI();
+};
+
+/* ---------- 主循环 ---------- */
+let visible = true;
+let lastUI = -1;                     // 上次同步数字面板的时间，用于限频
+
+function frame(ts) {
+  requestAnimationFrame(frame);
+
+  // 面板被切走时不做任何绘制：粒子照样按物理演化，只是不烧 GPU
+  if (!visible) { lastT = 0; return; }
+
+  const dt = lastT ? Math.min((ts - lastT) / 1000, 0.05) : 0;
+  lastT = ts;
+
+  if (running && dt > 0) {
+    for (let i = 0; i < 8; i++) r = stepRK4(r, dt / 8);
+    tNow += dt;
+    history.push({ t: tNow, p: (1 - r[2]) / 2, r: Math.hypot(r[0], r[1], r[2]) });
+    if (history.length > 1400) history.shift();
+    if (tNow < 40) { trail.push(r.slice()); if (trail.length > 300) trail.shift(); }
+    touch();
+  }
+
+  if (!dirty) return;                // 静止时不再每帧重画球体和曲线
+  draw();
+  drawChart();
+  if (ts - lastUI > 90) { updateUI(); lastUI = ts; }
+  dirty = false;
+}
+
+resizeChart(); updateUI();
+requestAnimationFrame(frame);
+$("blochlog").innerHTML =
+  `<div class="empty">还没有操作。点上面的门按钮试试 —— 每次操作都会把 r 矢量和波函数的变化记在这里。</div>`;
+
+/* 画布尺寸跟随布局变化（窗口缩放、侧栏换行、面板切换都会触发） */
+if (typeof ResizeObserver === "function") new ResizeObserver(resize).observe(ball);
+else window.addEventListener("resize", resize);
+
+if (globalThis.__TEST__) globalThis.__B = {
+  rotVec, clipSphere, drdt, stepRK4, rates, ampsFromR,
+  gateApply, expandGate, B_GATE_M, S2,
+  getR: () => r.slice(),
+  setR: v => { r = v.slice(); },
+  /* 供测试模拟「真的操作了一次」：真实交互都会经由 updateUI()/touch() 把画面标脏 */
+  poke: () => { updateUI(); },
+  setOD: (o, d) => { Omega = o; Delta = d; },
+  setDeco: (t1, tp) => { T1 = t1; Tphi = tp; }
+};
+
+return {
+  show() { visible = true; resize(); resizeChart(); updateUI(); draw(); drawChart(); },
+  hide() { visible = false; }
+};
+
+})();
+
+/* ═══════════════════════════════════════════════════════════
+   面板 2 · 量子线路
+   ═══════════════════════════════════════════════════════════ */
+const Circuit = (function () {
+
+/* ---------- 门矩阵 ---------- */
+/* 门矩阵用共享定义，这里只改个本地名字，读起来更贴近线路语境 */
+const U = BASE;
+let rotTheta = 90;
+function gateMatrix(type) {
+  if (type === 'Rx' || type === 'Ry' || type === 'Rz') {
+    const a = rotTheta * Math.PI / 180, h = a / 2;
+    if (type === 'Rx') return [[c(Math.cos(h)), c(0, -Math.sin(h))], [c(0, -Math.sin(h)), c(Math.cos(h))]];
+    if (type === 'Ry') return [[c(Math.cos(h)), c(-Math.sin(h))], [c(Math.sin(h)), c(Math.cos(h))]];
+    return [[cexp(-h), c(0)], [c(0), cexp(h)]];
+  }
+  return U[type];
+}
+const TWO = new Set(['CNOT', 'CZ', 'SWAP']);
+
+/* ---------- 线路数据 ---------- */
+let N = 2;
+const NCOLS = 10;
+let gates = emptyGates();
+let tool = 'H', pendingCtrl = null, lastN = -1;
+
+function emptyGates() {
+  return Array.from({ length: NCOLS }, () => new Array(N).fill(null));
+}
+
+/* ---------- 态矢量 ---------- */
+const qmask = (q, n) => 1 << (n - 1 - q);
+
+function basisState(i, n) {
+  const dim = 1 << n, psi = new Array(dim);
+  for (let k = 0; k < dim; k++) psi[k] = k === i ? c(1) : c(0);
+  return psi;
+}
+function applySingle(psi, q, M, n) {
+  const mask = qmask(q, n), out = psi.slice();
+  for (let i = 0; i < psi.length; i++) {
+    if (i & mask) continue;
+    const j = i | mask;
+    out[i] = cadd(cmul(M[0][0], psi[i]), cmul(M[0][1], psi[j]));
+    out[j] = cadd(cmul(M[1][0], psi[i]), cmul(M[1][1], psi[j]));
+  }
+  return out;
+}
+function applyTwo(psi, type, ctrl, targ, n) {
+  const mc = qmask(ctrl, n), mt = qmask(targ, n), out = psi.slice();
+  if (type === 'CNOT') {
+    for (let i = 0; i < psi.length; i++) {
+      if ((i & mc) && !(i & mt)) { const j = i | mt; out[i] = psi[j]; out[j] = psi[i]; }
+    }
+  } else if (type === 'CZ') {
+    for (let i = 0; i < psi.length; i++) {
+      if ((i & mc) && (i & mt)) out[i] = c(-psi[i].re, -psi[i].im);
+    }
+  } else {
+    for (let i = 0; i < psi.length; i++) {
+      if (!(i & mc) && (i & mt)) {
+        const j = (i | mc) & ~mt;
+        out[i] = psi[j]; out[j] = psi[i];
+      }
+    }
+  }
+  return out;
+}
+function measureQubit(psi, q, n) {
+  const mask = qmask(q, n);
+  let p1 = 0;
+  for (let i = 0; i < psi.length; i++) if (i & mask) p1 += cabs2(psi[i]);
+  const bit = Math.random() < p1 ? 1 : 0;
+  const out = psi.slice();
+  let norm = 0;
+  for (let i = 0; i < out.length; i++) {
+    if (((i & mask) ? 1 : 0) !== bit) out[i] = c(0);
+    else norm += cabs2(out[i]);
+  }
+  norm = Math.sqrt(norm);
+  if (norm > 1e-12) for (let i = 0; i < out.length; i++) out[i] = c(out[i].re / norm, out[i].im / norm);
+  return { psi: out, bit };
+}
+/* 逐列求值，把每一步的态都存下来（用于步骤回放和计算过程展示） */
+function collectOps(col) {
+  const ops = [];
+  for (let q = 0; q < N; q++) {
+    const g = gates[col][q];
+    if (g && !g.ref) ops.push(Object.assign({}, g, { q }));
+  }
+  return ops;
+}
+
+const OP_WHY = {
+  H: '把 |0⟩ 变成 (|0⟩+|1⟩)/√2，把 |1⟩ 变成 (|0⟩−|1⟩)/√2。制造叠加最基本的操作。',
+  X: '比特翻转：|0⟩ ↔ |1⟩，量子版的非门。',
+  Y: '比特翻转 + 相位：|0⟩ → i|1⟩，|1⟩ → −i|0⟩。',
+  Z: '相位翻转：给 |1⟩ 乘 −1，|0⟩ 不变。所以它对测量概率毫无影响。',
+  S: '给 |1⟩ 乘 i（相位 +90°），是 Z 门的平方根。',
+  T: '给 |1⟩ 乘 e^(iπ/4)（相位 +45°），是 S 门的平方根。',
+  Sdg: 'S 的逆：给 |1⟩ 乘 −i。',
+  Tdg: 'T 的逆：给 |1⟩ 乘 e^(−iπ/4)。',
+  CNOT: '控制位是 |1⟩ 时翻转目标位，否则不动。它能把乘积态变成纠缠态。',
+  CZ: '两个比特都为 |1⟩ 时乘 −1。和 CNOT 类似，只是不翻转目标位。',
+  SWAP: '把两个比特的状态整体对调。',
+  M: '按 |振幅|² 的概率随机坍缩到某个结果，横向相干性全部丢失。'
+};
+
+const OP_MATRIX = {
+  H: '1/√2 ⎡ 1    1  ⎤\n     ⎣ 1   −1  ⎦',
+  X: '⎡ 0   1 ⎤\n⎣ 1   0 ⎦',
+  Y: '⎡ 0  −i ⎤\n⎣ i   0 ⎦',
+  Z: '⎡ 1   0 ⎤\n⎣ 0  −1 ⎦',
+  S: '⎡ 1   0 ⎤\n⎣ 0   i ⎦',
+  T: '⎡ 1    0   ⎤\n⎣ 0   e^(iπ/4) ⎦',
+  Sdg: '⎡ 1    0  ⎤\n⎣ 0   −i  ⎦',
+  Tdg: '⎡ 1    0    ⎤\n⎣ 0   e^(−iπ/4) ⎦'
+};
+
+function evalCircuit() {
+  const list = [];
+  let psi = basisState(0, N);
+  list.push({ col: -1, ops: [], before: psi, psi: psi });
+
+  for (let col = 0; col < NCOLS; col++) {
+    const ops = collectOps(col);
+    if (!ops.length) continue;
+    const before = psi;
+    const meas = [];
+
+    // 先单比特门，再两比特门 —— 顺序固定，结果可预测
+    for (let q = 0; q < N; q++) {
+      const g = gates[col][q];
+      if (!g || g.ref || TWO.has(g.type)) continue;
+      if (g.type === 'M') {
+        const res = measureQubit(psi, q, N);
+        psi = res.psi;
+        meas.push({ q, bit: res.bit });
+      } else psi = applySingle(psi, q, gateMatrix(g.type), N);
+    }
+    for (let q = 0; q < N; q++) {
+      const g = gates[col][q];
+      if (g && !g.ref && TWO.has(g.type) && g.ctrl === q) psi = applyTwo(psi, g.type, g.ctrl, g.targ, N);
+    }
+    list.push({ col, ops, before, psi, meas });
+  }
+  return list;
+}
+
+/* ---------- 约化态 ---------- */
+function reducedRho(psi, q, n) {
+  const mask = qmask(q, n);
+  let a = c(0), b = c(0), d = c(0);
+  for (let i = 0; i < psi.length; i++) {
+    if (i & mask) continue;
+    const j = i | mask, A = psi[i], B = psi[j];
+    a = cadd(a, cmul(A, cconj(A)));
+    b = cadd(b, cmul(A, cconj(B)));
+    d = cadd(d, cmul(B, cconj(B)));
+  }
+  return { a, b, d };
+}
+const blochOfRho = rho => [2 * rho.b.re, -2 * rho.b.im, rho.a.re - rho.d.re];
+function entropyOfRho(rho) {
+  const r = blochOfRho(rho);
+  const L = Math.min(1, Math.hypot(r[0], r[1], r[2]));
+  const lp = (1 + L) / 2, lm = (1 - L) / 2;
+  let S = 0;
+  if (lp > 1e-12) S -= lp * Math.log2(lp);
+  if (lm > 1e-12) S -= lm * Math.log2(lm);
+  return S;
+}
+
+/* ---------- 线路渲染 ---------- */
+const circuitEl = $("circuit");
+
+function renderCircuit() {
+  circuitEl.style.gridTemplateColumns = `52px repeat(${NCOLS}, minmax(44px, 1fr))`;
+
+  // 整块线路先在内存里拼好，最后一次性挂上去 —— 避免 4×10 个格子逐次触发布局
+  const frag = document.createDocumentFragment();
+  const mk = (cls, text) => {
+    const d = document.createElement("div");
+    d.className = cls;
+    if (text !== undefined) d.textContent = text;
+    return d;
+  };
+  /* 同一个两比特门在控制位画圆点、在目标位画 ⊕，这里统一生成 */
+  const twoGlyph = type =>
+    type === 'SWAP' ? mk("glyph g2", "×")
+    : type === 'CNOT' ? mk("glyph plus", "⊕")
+    : mk("glyph dot");
+
+  for (let q = 0; q < N; q++) {
+    const lab = mk("qlabel");
+    const tag = document.createElement("b");
+    tag.textContent = `q${q}`;
+    lab.appendChild(tag);
+    frag.appendChild(lab);
+
+    for (let col = 0; col < NCOLS; col++) {
+      const cell = document.createElement("div");
+      cell.className = "cell";
+      cell.dataset.q = q; cell.dataset.col = col;
+      cell.appendChild(mk("vline"));
+
+      const g = gates[col][q];
+      if (g) {
+        if (g.ref) {                                  // 两比特门的从属单元格
+          const owner = gates[col][g.owner];
+          cell.classList.add(g.owner < q ? "vup" : "vdown");
+          cell.appendChild(twoGlyph(owner ? owner.type : ''));
+        } else if (TWO.has(g.type)) {                 // 两比特门的主单元格
+          cell.classList.add(q === Math.min(g.ctrl, g.targ) ? "vdown" : "vup");
+          cell.appendChild(twoGlyph(g.type));
+        } else {
+          cell.appendChild(mk("glyph" + (g.type === 'M' ? " meas" : ""), g.type));
+        }
+      }
+      frag.appendChild(cell);
+    }
+  }
+  circuitEl.replaceChildren(frag);
+
+  if (pendingCtrl) {
+    const el = circuitEl.querySelector(`.cell[data-q="${pendingCtrl.q}"][data-col="${pendingCtrl.col}"]`);
+    if (el) {
+      el.classList.add("pending");
+      el.appendChild(mk("glyph dot"));
+    }
+  }
+}
+
+/* ---------- 编辑 ---------- */
+function ownerAt(col, q) {
+  const g = gates[col][q];
+  if (!g) return null;
+  return g.ref ? g.owner : q;
+}
+function eraseAt(col, q) {
+  const owner = ownerAt(col, q);
+  if (owner === null) return false;
+  const g = gates[col][owner];
+  if (g && TWO.has(g.type)) gates[col][g.targ] = null;
+  gates[col][owner] = null;
+  return true;
+}
+
+circuitEl.addEventListener("click", e => {
+  const cell = e.target.closest(".cell");
+  if (!cell) return;
+  const col = +cell.dataset.col, q = +cell.dataset.q;
+
+  if (tool === 'erase') {
+    eraseAt(col, q); pendingCtrl = null;
+  } else if (TWO.has(tool)) {
+    if (!pendingCtrl) {
+      if (gates[col][q]) eraseAt(col, q);
+      else pendingCtrl = { col, q };
+    } else if (pendingCtrl.col !== col) {
+      pendingCtrl = { col, q };
+    } else if (pendingCtrl.q === q) {
+      pendingCtrl = null;
+    } else {
+      const ctrl = pendingCtrl.q, targ = q;
+      eraseAt(col, ctrl); eraseAt(col, targ);
+      gates[col][ctrl] = { type: tool, ctrl, targ };
+      gates[col][targ] = { ref: true, owner: ctrl };
+      pendingCtrl = null;
+    }
+  } else {
+    if (gates[col][q]) eraseAt(col, q);
+    else gates[col][q] = { type: tool };
+    pendingCtrl = null;
+  }
+  renderCircuit(); refresh();
+});
+
+circuitEl.addEventListener("contextmenu", e => {
+  const cell = e.target.closest(".cell");
+  if (!cell) return;
+  e.preventDefault();
+  eraseAt(+cell.dataset.col, +cell.dataset.q);
+  pendingCtrl = null;
+  renderCircuit(); refresh();
+});
+
+circuitEl.addEventListener("mousemove", e => {
+  circuitEl.querySelectorAll(".cell.hoverok").forEach(el => el.classList.remove("hoverok"));
+  const cell = e.target.closest(".cell");
+  if (!cell || !pendingCtrl) return;
+  if (+cell.dataset.col === pendingCtrl.col && +cell.dataset.q !== pendingCtrl.q) {
+    cell.classList.add("hoverok");
+  }
+});
+
+const toolBtns = $$("#tools button");   // 工具栏按钮固定不变，查一次就够
+function setTool(t) {
+  tool = t;
+  toolBtns.forEach(b => b.classList.toggle("on", b.dataset.tool === t));
+}
+toolBtns.forEach(btn => {
+  btn.onclick = () => {
+    setTool(btn.dataset.tool);
+    pendingCtrl = null;
+    $("toolhint").textContent = tool === 'erase'
+      ? "橡皮模式：点任意门把它删掉。"
+      : TWO.has(tool)
+        ? `${tool}：先点控制位，再点目标位（同一列）。`
+        : tool === 'M'
+          ? "测量门：该比特在这里被测量并坍缩出随机结果。改线路会重新采样。"
+          : "点格子放门。再点一次已有的门可以删掉，右键也行。";
+    renderCircuit();
+  };
+});
+
+$("sthetac").addEventListener("input", () => {
+  rotTheta = +$("sthetac").value;
+  $("lthetac").textContent = rotTheta + "°";
+  refreshSoon(false);   // 停在当前步骤，方便对比角度变化
+});
+
+/* ---------- 比特数 / 预设 ---------- */
+const bitBtns = $$("#qubitchoice button[data-n]");
+const syncBitBtns = () => bitBtns.forEach(b => b.classList.toggle("on", +b.dataset.n === N));
+
+function setN(n) {
+  N = n;
+  gates = emptyGates();
+  pendingCtrl = null;
+  syncBitBtns();
+  setTool('H');
+  renderCircuit(); refresh();
+}
+bitBtns.forEach(btn => {
+  btn.onclick = () => setN(+btn.dataset.n);
+});
+
+const PRESETS = {
+  bell:  { n: 2, ops: [[0, 0, 'H'], [1, 0, 'CNOT', 1]] },
+  ghz3:  { n: 3, ops: [[0, 0, 'H'], [1, 0, 'CNOT', 1], [2, 1, 'CNOT', 2]] },
+  ghz4:  { n: 4, ops: [[0, 0, 'H'], [1, 0, 'CNOT', 1], [2, 1, 'CNOT', 2], [3, 2, 'CNOT', 3]] },
+  dense: { n: 2, ops: [[0, 0, 'H'], [1, 0, 'CNOT', 1], [2, 0, 'Z'], [2, 1, 'X'], [4, 0, 'CNOT', 1], [5, 0, 'H']] }
+};
+$$("#qubitchoice button[data-preset]").forEach(btn => {
+  btn.onclick = () => loadPreset(btn.dataset.preset);
+});
+function loadPreset(name) {
+  if (name === 'allh') {
+    gates = emptyGates();
+    for (let q = 0; q < N; q++) gates[0][q] = { type: 'H' };
+    pendingCtrl = null; renderCircuit(); refresh(); return;
+  }
+  const p = PRESETS[name];
+  if (!p) return;
+  N = p.n;
+  gates = emptyGates();
+  syncBitBtns();
+  for (const [col, q, type, targ] of p.ops) {
+    if (TWO.has(type)) {
+      gates[col][q] = { type, ctrl: q, targ };
+      gates[col][targ] = { ref: true, owner: q };
+    } else gates[col][q] = { type };
+  }
+  pendingCtrl = null;
+  renderCircuit(); refresh();
+}
+$("bclear").onclick = () => { gates = emptyGates(); pendingCtrl = null; renderCircuit(); refresh(); };
+
+/* ---------- 结果面板 ---------- */
+let steps = [];
+let stepIdx = 0;
+const curPsi = () => (steps[stepIdx] ? steps[stepIdx].psi : basisState(0, N));
+const probCanvas = $("probchart"), pctx = probCanvas.getContext("2d");
+let lastPsi = null;   // 最近一次画过的态，供尺寸变化时重画
+
+function resizeProb() {
+  const rect = probCanvas.getBoundingClientRect();
+  const dpr = window.devicePixelRatio || 1;
+  probCanvas.width = Math.max(1, Math.round(rect.width * dpr));
+  probCanvas.height = Math.max(1, Math.round(rect.height * dpr));
+  pctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  probCanvas._w = rect.width; probCanvas._h = rect.height;
+}
+
+function roundTopRect(x, y, w, h, r) {
+  r = Math.min(r, w / 2, h);
+  pctx.beginPath();
+  pctx.moveTo(x, y + h);
+  pctx.lineTo(x, y + r);
+  pctx.quadraticCurveTo(x, y, x + r, y);
+  pctx.lineTo(x + w - r, y);
+  pctx.quadraticCurveTo(x + w, y, x + w, y + r);
+  pctx.lineTo(x + w, y + h);
+  pctx.closePath();
+}
+
+function drawProb(psi) {
+  const w = probCanvas._w || 300, h = probCanvas._h || 172;
+  lastPsi = psi;                      // 记住画的是哪个态，尺寸变化时好重画
+  pctx.clearRect(0, 0, w, h);
+  if (w < 2) return;
+
+  const dim = psi.length;
+  const padL = 34, padB = 24, padT = 16, plotH = h - padB - padT;
+  const base = padT + plotH;
+  const slot = (w - padL - 8) / dim;
+  const barW = Math.min(slot * 0.70, 44);
+  const showValues = dim <= 8;
+
+  // ── 网格 ──
+  pctx.font = "10px Consolas, monospace";
+  for (const p of [0, 0.25, 0.5, 0.75, 1]) {
+    const y = base - plotH * p;
+    pctx.strokeStyle = p === 0 ? "rgba(120,140,175,0.0)" : "rgba(120,140,175,0.11)";
+    pctx.setLineDash(p === 0 ? [] : [2, 4]);
+    pctx.beginPath(); pctx.moveTo(padL, y + .5); pctx.lineTo(w - 6, y + .5); pctx.stroke();
+    pctx.setLineDash([]);
+    pctx.fillStyle = "#4f5a70"; pctx.textAlign = "right"; pctx.textBaseline = "middle";
+    pctx.fillText(p.toFixed(2), padL - 7, y);
+  }
+
+  // ── 基线 ──
+  pctx.strokeStyle = "rgba(120,150,200,0.3)";
+  pctx.lineWidth = 1;
+  pctx.beginPath(); pctx.moveTo(padL - 2, base + .5); pctx.lineTo(w - 4, base + .5); pctx.stroke();
+
+  // ── 柱 ──
+  for (let i = 0; i < dim; i++) {
+    const a = psi[i], p = cabs2(a);
+    const x = padL + slot * i + (slot - barW) / 2;
+
+    if (p > 1e-9) {
+      const hue = ((Math.atan2(a.im, a.re) + Math.PI) / (2 * Math.PI) * 360).toFixed(0);
+      const bh = Math.max(plotH * Math.min(1, p), 3);
+      const y = base - bh;
+
+      const g = pctx.createLinearGradient(0, y, 0, base);
+      g.addColorStop(0, `hsl(${hue}, 74%, 66%)`);
+      g.addColorStop(0.5, `hsl(${hue}, 66%, 48%)`);
+      g.addColorStop(1, `hsl(${hue}, 56%, 30%)`);
+
+      pctx.save();
+      pctx.shadowColor = `hsla(${hue}, 78%, 62%, 0.45)`;
+      pctx.shadowBlur = 13;
+      pctx.fillStyle = g;
+      roundTopRect(x, y, barW, bh, 5);
+      pctx.fill();
+      pctx.restore();
+
+      // 顶部高光
+      pctx.fillStyle = `hsla(${hue}, 92%, 84%, 0.42)`;
+      roundTopRect(x + 1.5, y + 1, barW - 3, Math.min(3, bh * 0.28), 2);
+      pctx.fill();
+
+      if (showValues) {
+        pctx.fillStyle = "#a9b8d0";
+        pctx.font = "10px Consolas, monospace";
+        pctx.textAlign = "center"; pctx.textBaseline = "bottom";
+        pctx.fillText((p * 100).toFixed(p >= 0.1 ? 0 : 1) + "%", x + barW / 2, y - 5);
+      }
+    } else {
+      pctx.fillStyle = "rgba(120,140,175,0.13)";
+      pctx.fillRect(x, base - 2, barW, 2);
+    }
+
+    pctx.fillStyle = p > 1e-9 ? "#93a0b5" : "#49536a";
+    pctx.font = "10px Consolas, monospace";
+    pctx.textAlign = "center"; pctx.textBaseline = "top";
+    pctx.fillText("|" + i.toString(2).padStart(N, "0") + "⟩", x + barW / 2, base + 7);
+  }
+}
+
+function drawAmpl(psi) {
+  let html = "";
+  for (let i = 0; i < psi.length; i++) {
+    const a = psi[i], p = cabs2(a);
+    if (p < 1e-6) continue;
+    const re = Math.abs(a.re) < 5e-4 ? "0" : a.re.toFixed(4);
+    let v = re;
+    if (Math.abs(a.im) >= 5e-4) v += (a.im < 0 ? " − " : " + ") + Math.abs(a.im).toFixed(4) + "i";
+    html += `<div><span class="k">|${i.toString(2).padStart(N, "0")}⟩</span>` +
+            `<span class="v">${v}</span><span class="p">${(p * 100).toFixed(1)}%</span></div>`;
+  }
+  $("ampl").innerHTML = html || `<div style="color:#5f6b7f">所有振幅都接近 0</div>`;
+}
+
+const blochRow = $("blochrow");
+function buildBlochCells() {
+  blochRow.innerHTML = "";
+  for (let q = 0; q < N; q++) {
+    const wrap = document.createElement("div");
+    wrap.className = "bcell";
+    const cv = document.createElement("canvas");
+    wrap.appendChild(cv);
+    const cap = document.createElement("span");
+    cap.innerHTML = `q${q}<br><b id="blq${q}">—</b>`;
+    wrap.appendChild(cap);
+    blochRow.appendChild(wrap);
+    cv._ctx = cv.getContext("2d");
+  }
+}
+function drawMiniBloch(cv, rv) {
+  const ctx2 = cv._ctx, dpr = window.devicePixelRatio || 1, w = 108, h = 108;
+  if (cv.width !== w * dpr) {
+    cv.width = w * dpr; cv.height = h * dpr;
+    ctx2.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+  ctx2.clearRect(0, 0, w, h);
+  const cx = w / 2, cy = h / 2, R = 39;
+  const L = Math.hypot(rv[0], rv[1], rv[2]);
+  const pure = L > 0.995;
+
+  // 玻璃球体
+  const t = pure ? [72, 124, 205] : [146, 110, 216];
+  const gb = ctx2.createRadialGradient(cx - R * 0.35, cy - R * 0.40, R * 0.05, cx, cy, R);
+  gb.addColorStop(0, `rgba(${t[0]},${t[1]},${t[2]},0.22)`);
+  gb.addColorStop(1, "rgba(8,12,24,0.02)");
+  ctx2.fillStyle = gb;
+  ctx2.beginPath(); ctx2.arc(cx, cy, R, 0, Math.PI * 2); ctx2.fill();
+
+  // 两条经线
+  ctx2.strokeStyle = "rgba(110,130,165,0.18)"; ctx2.lineWidth = 1;
+  for (const k of [0.52, 0.18]) {
+    ctx2.beginPath(); ctx2.ellipse(cx, cy, R * k, R, 0, 0, Math.PI * 2); ctx2.stroke();
+  }
+  // 赤道
+  ctx2.beginPath(); ctx2.ellipse(cx, cy, R, R * 0.34, 0, 0, Math.PI * 2);
+  ctx2.strokeStyle = "rgba(100,170,255,0.42)"; ctx2.stroke();
+
+  // 轮廓柔光
+  ctx2.save();
+  ctx2.shadowColor = "rgba(77,159,255,0.26)"; ctx2.shadowBlur = 10;
+  ctx2.beginPath(); ctx2.arc(cx, cy, R, 0, Math.PI * 2);
+  ctx2.strokeStyle = "rgba(126,162,218,0.42)"; ctx2.stroke();
+  ctx2.restore();
+
+  // 竖轴
+  ctx2.setLineDash([2, 3]);
+  ctx2.strokeStyle = "rgba(120,140,175,0.28)";
+  ctx2.beginPath(); ctx2.moveTo(cx, cy - R); ctx2.lineTo(cx, cy + R); ctx2.stroke();
+  ctx2.setLineDash([]);
+
+  ctx2.fillStyle = "#3f4e66"; ctx2.font = "10px Consolas, monospace";
+  ctx2.textAlign = "center";
+  ctx2.fillText("0", cx, cy - R - 4);
+  ctx2.fillText("1", cx, cy + R + 10);
+
+  // 等距投影
+  const ang = -Math.PI / 6, ca = Math.cos(ang), sa = Math.sin(ang);
+  const px = x => cx + (x[0] * ca - x[1] * sa) * R;
+  const py = x => cy - x[2] * R - (x[0] * sa + x[1] * ca) * R * 0.34;
+
+  // 矢量箭头（发光）
+  const col = pure ? "#f0557d" : L < 0.02 ? "#6b7688" : "#a78bfa";
+  ctx2.save();
+  ctx2.shadowColor = col; ctx2.shadowBlur = 9;
+  ctx2.strokeStyle = col; ctx2.lineWidth = 2.4; ctx2.lineCap = "round";
+  ctx2.beginPath(); ctx2.moveTo(cx, cy); ctx2.lineTo(px(rv), py(rv)); ctx2.stroke();
+  ctx2.beginPath(); ctx2.arc(px(rv), py(rv), 3.4, 0, Math.PI * 2);
+  ctx2.fillStyle = col; ctx2.fill();
+  ctx2.restore();
+
+  ctx2.beginPath(); ctx2.arc(px(rv), py(rv), 1.2, 0, Math.PI * 2);
+  ctx2.fillStyle = "rgba(255,255,255,0.9)"; ctx2.fill();
+}
+
+/* ---------- 计算过程 ---------- */
+function fmtAmp(a) {
+  const re = Math.abs(a.re) < 5e-5 ? "0" : a.re.toFixed(3);
+  if (Math.abs(a.im) < 5e-5) return re;
+  return `${re} ${a.im < 0 ? "−" : "+"} ${Math.abs(a.im).toFixed(3)}i`;
+}
+
+/* 一张对比表：作用前 → 作用后。省略 before 时退化成单列 */
+function basisTable(after, before) {
+  const rows = [];
+  for (let i = 0; i < after.length; i++) {
+    const pa = cabs2(after[i]);
+    const pb = before ? cabs2(before[i]) : 0;
+    if (pa < 1e-6 && pb < 1e-6) continue;
+    rows.push({ i, pa, pb, a: after[i], b: before ? before[i] : null });
+  }
+  if (!rows.length) {
+    return `<div class="basis"><div><span class="v dim">（所有振幅都是 0）</span></div></div>`;
+  }
+
+  let html = `<div class="basis">`;
+  if (before) {
+    html += `<div class="hd"><span></span><span>作用前</span><span></span><span>作用后</span></div>`;
+  }
+  for (const r of rows) {
+    const label = "|" + r.i.toString(2).padStart(N, "0") + "⟩";
+    if (!before) {
+      html += `<div><span class="k">${label}</span>` +
+              `<span class="v">${fmtAmp(r.a)}</span><span></span><span></span></div>`;
+      continue;
+    }
+    const changed = Math.abs(r.pa - r.pb) > 1e-6;
+    const bTxt = r.pb < 1e-6 ? "—" : fmtAmp(r.b);
+    const aTxt = r.pa < 1e-6 ? "0" : fmtAmp(r.a);
+    html += `<div class="${changed ? "chg" : ""}">` +
+            `<span class="k">${label}</span>` +
+            `<span class="v${r.pb < 1e-6 ? " dim" : ""}">${bTxt}</span>` +
+            `<span class="ar">${changed ? "→" : "·"}</span>` +
+            `<span class="v${r.pa < 1e-6 ? " dim" : ""}">${aTxt}</span>` +
+            `</div>`;
+  }
+  return html + `</div>`;
+}
+
+const TWO_RULE = {
+  CNOT: (c, t) => `控制位 q${c} 是 |0⟩ 时什么都不做，是 |1⟩ 时翻转 q${t}`,
+  CZ:   (c, t) => `q${c} 和 q${t} 都为 |1⟩ 时乘 −1，其余情况都不动`,
+  SWAP: (c, t) => `q${c} 和 q${t} 的状态整体对调`
+};
+
+function opLabel(o) {
+  if (TWO.has(o.type)) {
+    if (o.type === 'CNOT') return `CNOT　q${o.ctrl} → q${o.targ}`;
+    if (o.type === 'CZ')   return `CZ　q${o.ctrl} , q${o.targ}`;
+    return `SWAP　q${o.ctrl} ↔ q${o.targ}`;
+  }
+  if (o.type === 'M') return `测量 q${o.q}`;
+  if (o.type === 'Rx' || o.type === 'Ry' || o.type === 'Rz') return `${o.type}(${rotTheta}°)　@ q${o.q}`;
+  return `${o.type}　@ q${o.q}`;
+}
+
+function renderStepInfo() {
+  const el = $("stepinfo");
+  const st = steps[stepIdx];
+
+  if (!st || stepIdx === 0) {
+    el.innerHTML =
+      `<div class="ops">初始态　|${"0".repeat(N)}⟩</div>` +
+      `<div class="explain">所有比特都在 |0⟩。这是线路的起点，也是最容易制备的态。</div>` +
+      `<div class="sub">当前振幅</div>` + basisTable(st ? st.psi : basisState(0, N));
+    return;
+  }
+
+  let html = `<div class="ops">${st.ops.map(opLabel).join("　")}</div>`;
+
+  const whys = st.ops.map(o => OP_WHY[o.type]).filter(Boolean);
+  if (whys.length) html += `<div class="explain">${whys.join("<br>")}</div>`;
+
+  // 两比特门：讲清楚它的作用规则
+  for (const o of st.ops) {
+    if (TWO.has(o.type) && TWO_RULE[o.type]) {
+      html += `<div class="why2">作用规则：${TWO_RULE[o.type](o.ctrl, o.targ)}</div>`;
+    }
+  }
+
+  if (st.meas && st.meas.length) {
+    html += `<div class="explain delta">本步测量结果：` +
+            st.meas.map(m => `q${m.q} 测得 |${m.bit}⟩`).join("，") +
+            `　—　这是随机的一次实现，重新求值会得到不同结果</div>`;
+  }
+
+  // 单比特门：把矩阵亮出来
+  const single = st.ops.find(o => OP_MATRIX[o.type]);
+  if (single) {
+    html += `<div class="sub">${single.type} 门的矩阵</div>` +
+            `<div class="matrix">${OP_MATRIX[single.type]}</div>`;
+  }
+
+  html += `<div class="sub">态的变化（只列非零分量）</div>` + basisTable(st.psi, st.before);
+
+  el.innerHTML = html;
+}
+
+/* ---------- 渲染当前步骤的所有视图 ---------- */
+function renderAll() {
+  const psi = curPsi();
+
+  drawProb(psi);
+  drawAmpl(psi);
+  if (lastN !== N) { buildBlochCells(); lastN = N; }
+
+  let html = "";
+  for (let q = 0; q < N; q++) {
+    const rho = reducedRho(psi, q, N);
+    const rv = blochOfRho(rho);
+    const S = entropyOfRho(rho);
+    drawMiniBloch(blochRow.children[q].firstChild, rv);
+    $(`blq${q}`).textContent = `|r|=${Math.hypot(...rv).toFixed(2)}  S=${S.toFixed(3)}`;
+    html += `<div class="kv"><span>q${q} 约化态熵</span><span>${S.toFixed(4)} bit</span></div>` +
+            `<div class="entbar"><i style="width:${(S * 100).toFixed(1)}%"></i></div>`;
+  }
+  const tot = psi.reduce((s, a) => s + cabs2(a), 0);
+  const pur = psi.reduce((s, a) => s + cabs2(a) ** 2, 0);
+  const isPure = Math.abs(pur / (tot * tot) - 1) < 1e-9;
+  html += `<div class="kv" style="margin-top:4px"><span>总态纯度</span>` +
+          `<span>${(pur / (tot * tot)).toFixed(6)} ${isPure ? "· 纯态" : "· 混态"}</span></div>`;
+  $("entropy").innerHTML = html;
+
+  renderStepInfo();
+  $("stepcount").textContent = `${stepIdx} / ${Math.max(0, steps.length - 1)}`;
+
+  const hasMeas = gates.some(col => col.some(g => g && g.type === 'M'));
+  $("warn").textContent = hasMeas
+    ? "线路里有测量门：结果是随机采样的一次实现，改线路或点「跑 1 次」会重新采样。"
+    : "";
+}
+
+/* 线路变了 → 重新求值。jumpEnd=false 用于拖旋转角滑块（停在当前步骤） */
+function refresh(jumpEnd = true) {
+  const keep = stepIdx;
+  steps = evalCircuit();
+  stepIdx = jumpEnd ? steps.length - 1
+                    : Math.max(0, Math.min(steps.length - 1, keep));
+  const rng = $("stepRange");
+  rng.max = Math.max(0, steps.length - 1);
+  rng.value = stepIdx;
+  renderAll();
+}
+
+/* 拖滑块时每帧只重算一次：一次拖动会连发几十个 input 事件，
+   直接重算等于把整条线路求值几十遍 */
+let refreshQueued = false;
+function refreshSoon(jumpEnd = true) {
+  if (refreshQueued) return;
+  refreshQueued = true;
+  requestAnimationFrame(() => { refreshQueued = false; refresh(jumpEnd); });
+}
+
+function goStep(i) {
+  stepIdx = Math.max(0, Math.min(steps.length - 1, i));
+  $("stepRange").value = stepIdx;
+  renderAll();
+}
+
+/* ---------- 采样 ---------- */
+function sampleOnce() {
+  const psi = curPsi();
+  let tot = 0;
+  for (const a of psi) tot += cabs2(a);
+  if (tot < 1e-12) return 0;
+  let x = Math.random() * tot, acc = 0;
+  for (let i = 0; i < psi.length; i++) {
+    acc += cabs2(psi[i]);
+    if (x <= acc) return i;
+  }
+  return psi.length - 1;
+}
+const fmtIdx = i => "|" + i.toString(2).padStart(N, "0") + "⟩";
+
+$("bshot1").onclick = () => {
+  $("shotres").textContent = `采样结果：${fmtIdx(sampleOnce())}`;
+};
+$("bshot100").onclick = () => {
+  const psi = curPsi();
+  const counts = new Map(), M = 1000;
+  for (let k = 0; k < M; k++) {
+    const i = sampleOnce();
+    counts.set(i, (counts.get(i) || 0) + 1);
+  }
+  const top = [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 4);
+  const theory = [];
+  for (let i = 0; i < psi.length; i++) {
+    const p = cabs2(psi[i]);
+    if (p > 1e-6) theory.push([i, p]);
+  }
+  theory.sort((a, b) => b[1] - a[1]);
+  $("shotres").textContent =
+    `${M} 次实测：` + top.map(([i, n]) => `${fmtIdx(i)} ${n} 次 (${(n / M * 100).toFixed(1)}%)`).join("　") +
+    `\n理论值：` + theory.slice(0, 4).map(([i, p]) => `${fmtIdx(i)} ${(p * 100).toFixed(1)}%`).join("　");
+};
+
+/* ---------- 步骤导航 ---------- */
+$("stepRange").addEventListener("input", () => goStep(+$("stepRange").value));
+$("stepPrev").onclick = () => goStep(stepIdx - 1);
+$("stepNext").onclick = () => goStep(stepIdx + 1);
+window.addEventListener("keydown", e => {
+  if (e.target.tagName === "INPUT" || e.target.closest(".tab")) return;
+  if ($("panel-circuit").classList.contains("active")) {
+    if (e.key === "ArrowLeft") { goStep(stepIdx - 1); e.preventDefault(); }
+    if (e.key === "ArrowRight") { goStep(stepIdx + 1); e.preventDefault(); }
+  }
+});
+
+/* ---------- 启动 ---------- */
+loadPreset('bell');   // 开屏直接给一条能看的 Bell 线路（里面会渲染线路并求值一次）
+
+if (globalThis.__TEST__) globalThis.__C = {
+  c, cadd, cmul, cconj, cabs2,
+  U, gateMatrix, basisState, applySingle, applyTwo, measureQubit,
+  reducedRho, blochOfRho, entropyOfRho, evalCircuit,
+  set: (n, g) => { N = n; gates = g; },
+  setTheta: t => { rotTheta = t; }
+};
+
+/* 面板宽度变化（窗口缩放、侧栏换行、切回本标签页）时重算画布尺寸 */
+if (typeof ResizeObserver === "function") {
+  new ResizeObserver(() => {
+    resizeProb();
+    if (lastPsi) drawProb(lastPsi);
+  }).observe(probCanvas);
+} else {
+  window.addEventListener("resize", resizeProb);
+}
+
+return {
+  show() { resizeProb(); if (lastPsi) drawProb(lastPsi); },
+  hide() {}
+};
+
+})();
+
+/* ═══════════════════════════════════════════════════════════
+   标签页切换
+   ═══════════════════════════════════════════════════════════ */
+(function () {
+  const panels = { bloch: $("panel-bloch"), circuit: $("panel-circuit") };
+  const mods = { bloch: Bloch, circuit: Circuit };
+  const names = Object.keys(panels);
+  let active = 'bloch';
+
+  function activate(name) {
+    if (name === active) return;
+    panels[active].classList.remove("active");
+    mods[active].hide();
+    active = name;
+    panels[name].classList.add("active");
+    // 布局完成后再让画布按新尺寸重算
+    requestAnimationFrame(() => mods[name].show());
+  }
+
+  function select(btn, focus) {
+    $$(".tab").forEach(b => {
+      const on = b === btn;
+      b.classList.toggle("active", on);
+      b.setAttribute("aria-selected", on ? "true" : "false");
+      b.tabIndex = on ? 0 : -1;          // 一组标签页里只有当前项在 Tab 键顺序内
+    });
+    if (focus) btn.focus();
+    activate(btn.dataset.tab);
+  }
+
+  $$(".tab").forEach((btn, i) => {
+    btn.onclick = () => select(btn, false);
+    btn.addEventListener("keydown", e => {
+      const step = e.key === "ArrowRight" ? 1 : e.key === "ArrowLeft" ? -1
+                 : e.key === "Home" ? -i : e.key === "End" ? names.length - 1 - i : 0;
+      if (!step) return;
+      e.preventDefault();
+      select($$(".tab")[(i + step + names.length) % names.length], true);
+    });
+  });
+
+  requestAnimationFrame(() => Bloch.show());
+
+  // 测试钩子：假 DOM 里点不动标签，这里直接暴露「按名字切面板」的入口
+  if (globalThis.__TEST__) globalThis.__TAB__ = activate;
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,925 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>量子线路模拟器 · 多比特 · 纠缠</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0; background: #0b0e14; color: #e6e9ef; overflow: hidden;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif;
+    font-size: 14px; line-height: 1.6;
+    display: flex; flex-direction: column;
+  }
+  #top {
+    display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+    padding: 12px 18px; border-bottom: 1px solid #1a2130; background: #0d1118;
+  }
+  h1 { font-size: 15px; margin: 0; letter-spacing: .3px; white-space: nowrap; }
+  h1 small { color: #6b7688; font-weight: 400; font-size: 12px; margin-left: 8px; }
+  #main { flex: 1; display: flex; min-height: 0; }
+  #left {
+    flex: 1 1 58%; min-width: 0; overflow: auto; padding: 16px 18px 40px;
+    border-right: 1px solid #1a2130;
+  }
+  #right { flex: 1 1 42%; min-width: 340px; overflow-y: auto; padding: 16px 18px 40px; background: #0d1118; }
+  #right::-webkit-scrollbar, #left::-webkit-scrollbar { width: 8px; height: 8px; }
+  #right::-webkit-scrollbar-thumb, #left::-webkit-scrollbar-thumb { background: #232c3d; border-radius: 4px; }
+
+  .card {
+    background: #121826; border: 1px solid #1e2739; border-radius: 10px;
+    padding: 13px 14px; margin-bottom: 13px;
+  }
+  .card > h2 {
+    font-size: 11px; font-weight: 600; color: #7f8ca3; margin: 0 0 10px;
+    text-transform: uppercase; letter-spacing: 1px;
+  }
+  .note { font-size: 12px; color: #5f6a7d; margin-top: 8px; }
+
+  button {
+    background: #1b2436; color: #cdd9ec; border: 1px solid #26314a;
+    border-radius: 7px; padding: 6px 10px; font-size: 13px; cursor: pointer;
+    transition: background .12s, border-color .12s; font-family: inherit;
+  }
+  button:hover { background: #24304a; border-color: #3a4a6d; }
+  button:active { transform: translateY(1px); }
+  button.on { background: #1f3050; border-color: #3f6bb5; color: #a8ccff; box-shadow: 0 0 0 1px #2f4d80 inset; }
+  button.hot { background: #1f3050; border-color: #2f4d80; color: #9fc7ff; }
+  button.danger { color: #ff9aae; border-color: #4a2436; }
+  button.danger:hover { background: #2c1824; }
+  button.small { padding: 4px 8px; font-size: 12px; }
+  .toolgrid { display: flex; flex-wrap: wrap; gap: 6px; }
+  .toolgrid button { flex: 0 0 auto; min-width: 40px; text-align: center; font-family: Consolas, monospace; }
+  .sep { width: 1px; background: #26314a; margin: 0 4px; align-self: stretch; }
+
+  input[type=range] { -webkit-appearance: none; width: 100%; height: 18px; background: transparent; }
+  input[type=range]::-webkit-slider-runnable-track { height: 4px; background: #23304a; border-radius: 2px; }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none; width: 13px; height: 13px; border-radius: 50%;
+    background: #4da3ff; margin-top: -5px; cursor: pointer; border: 2px solid #0d1118;
+  }
+  .slider { margin: 2px 0 8px; }
+  .slider label { display: flex; justify-content: space-between; font-size: 12px; color: #6b7688; }
+  .slider label b { font-family: Consolas, monospace; color: #a9b8d0; font-weight: 500; }
+
+  /* ---------- 线路图 ---------- */
+  #circuit { display: grid; gap: 0; user-select: none; }
+  .qlabel {
+    display: flex; align-items: center; justify-content: flex-end; padding-right: 10px;
+    font-family: Consolas, monospace; font-size: 13px; color: #7f8ca3;
+  }
+  .qlabel b { color: #4da3ff; font-weight: 500; }
+  .cell { position: relative; height: 44px; cursor: pointer; }
+  .cell::before {
+    content: ''; position: absolute; left: 0; right: 0; top: 50%;
+    height: 2px; margin-top: -1px; background: #212b3e;
+  }
+  .cell:hover::before { background: #2c3950; }
+  .cell .vline {
+    position: absolute; left: 50%; width: 2px; margin-left: -1px; background: #4da3ff; display: none;
+  }
+  .cell.vdown .vline { top: 50%; bottom: 0; display: block; }
+  .cell.vup   .vline { top: 0; bottom: 50%; display: block; }
+  .cell.vboth .vline { top: 0; bottom: 0; display: block; }
+  .glyph {
+    position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+    width: 30px; height: 30px; border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+    font-family: Consolas, monospace; font-size: 13px; z-index: 2;
+    background: #1d2942; border: 1px solid #35507f; color: #b9d4ff;
+  }
+  .glyph.g2 { background: #2a1d42; border-color: #5a3f8a; color: #d7c2ff; }
+  .glyph.meas { background: #3a2028; border-color: #71394a; color: #ffb3c3; border-radius: 50%; }
+  .glyph.dot { width: 14px; height: 14px; border-radius: 50%; background: #4da3ff; border-color: #7fc4ff; }
+  .glyph.plus {
+    background: transparent; border-color: #4da3ff; border-radius: 50%;
+    color: #7fc4ff; font-size: 17px; line-height: 1;
+  }
+  .cell.pending .glyph { opacity: .55; }
+  .cell.pending::before { background: #6a4a1e; }
+  .cell.hoverok .glyph { outline: 2px dashed #ffb347; outline-offset: 2px; }
+
+  /* ---------- 结果 ---------- */
+  #probchart { display: block; width: 100%; height: 170px; }
+  .ampl {
+    font-family: Consolas, monospace; font-size: 12.5px; color: #a9b8d0;
+    max-height: 150px; overflow-y: auto;
+  }
+  .ampl div { display: flex; justify-content: space-between; padding: 1px 2px; }
+  .ampl div:hover { background: #18202e; }
+  .ampl .k { color: #7fc4ff; }
+  .ampl .v { color: #c9b6e8; }
+  .ampl .p { color: #5f6a7d; width: 58px; text-align: right; }
+
+  .blochrow { display: flex; flex-wrap: wrap; gap: 12px; }
+  .bcell { text-align: center; }
+  .bcell canvas { display: block; width: 106px; height: 106px; background: #0a0e16; border-radius: 8px; }
+  .bcell span { font-size: 11px; color: #6b7688; font-family: Consolas, monospace; }
+  .bcell span b { color: #a9b8d0; font-weight: 500; }
+
+  .kv { display: flex; justify-content: space-between; font-size: 13px; padding: 2px 0; }
+  .kv span:first-child { color: #6b7688; }
+  .kv span:last-child { font-family: Consolas, monospace; color: #a9b8d0; }
+  .entbar { height: 7px; background: #1a2333; border-radius: 4px; overflow: hidden; margin-top: 2px; }
+  .entbar > i { display: block; height: 100%; background: linear-gradient(90deg, #2b6cb0, #b18ad0); }
+  .result { font-family: Consolas, monospace; color: #ffd479; font-size: 12.5px; min-height: 18px; margin-top: 8px; }
+  .warn { color: #ffb347; font-size: 12px; margin-top: 6px; }
+  @media (max-width: 980px) {
+    #main { flex-direction: column; }
+    #left { border-right: none; border-bottom: 1px solid #1a2130; }
+  }
+</style>
+</head>
+<body>
+
+<div id="top">
+  <h1>量子线路模拟器<small>态矢量法 · 最多 4 比特</small></h1>
+  <div class="toolgrid" id="qubitchoice">
+    <button data-n="1">1 比特</button>
+    <button data-n="2" class="on">2 比特</button>
+    <button data-n="3">3 比特</button>
+    <button data-n="4">4 比特</button>
+  </div>
+  <div class="toolgrid" id="presets">
+    <button class="small" data-preset="bell">Bell 态</button>
+    <button class="small" data-preset="ghz3">GHZ(3)</button>
+    <button class="small" data-preset="ghz4">GHZ(4)</button>
+    <button class="small" data-preset="dense">超密集编码</button>
+    <button class="small" data-preset="allh">全 H</button>
+  </div>
+  <div class="toolgrid" style="margin-left:auto">
+    <button id="bclear" class="danger small">清空线路</button>
+  </div>
+</div>
+
+<div id="main">
+  <div id="left">
+    <div class="card">
+      <h2>门工具栏</h2>
+      <div class="toolgrid" id="tools">
+        <button data-tool="H" class="on">H</button>
+        <button data-tool="X">X</button>
+        <button data-tool="Y">Y</button>
+        <button data-tool="Z">Z</button>
+        <button data-tool="S">S</button>
+        <button data-tool="T">T</button>
+        <button data-tool="Sdg">S†</button>
+        <button data-tool="Tdg">T†</button>
+        <span class="sep"></span>
+        <button data-tool="Rx">Rx</button>
+        <button data-tool="Ry">Ry</button>
+        <button data-tool="Rz">Rz</button>
+        <span class="sep"></span>
+        <button data-tool="CNOT">CNOT</button>
+        <button data-tool="CZ">CZ</button>
+        <button data-tool="SWAP">SWAP</button>
+        <span class="sep"></span>
+        <button data-tool="M">测量</button>
+        <button data-tool="erase">橡皮</button>
+      </div>
+      <div class="slider" style="margin-top:10px">
+        <label>旋转角 θ（Rx/Ry/Rz 用）<b id="lthetac">90°</b></label>
+        <input type="range" id="sthetac" min="-360" max="360" step="5" value="90">
+      </div>
+      <div class="note" id="toolhint">点格子放门。CNOT / CZ / SWAP 需要点两格（先点的那格是控制位）。再点一次已有的门可以删掉。</div>
+    </div>
+
+    <div class="card">
+      <h2>线路</h2>
+      <div id="circuit"></div>
+      <div class="warn" id="warn"></div>
+    </div>
+  </div>
+
+  <div id="right">
+    <div class="card">
+      <h2>概率分布</h2>
+      <canvas id="probchart"></canvas>
+      <div class="note">柱高 = 测量到该基态的概率，颜色 = 该振幅的相位（色轮一圈 = 2π）。</div>
+    </div>
+
+    <div class="card">
+      <h2>振幅</h2>
+      <div class="ampl" id="ampl"></div>
+    </div>
+
+    <div class="card">
+      <h2>单比特约化态（布洛赫球）</h2>
+      <div class="blochrow" id="blochrow"></div>
+      <div class="note">纠缠的直观判据：只要某个比特的箭头缩短到球内（<b>|r| &lt; 1</b>），
+      它就和别的比特纠缠了。全都在球面上 = 完全可分离的乘积态。</div>
+    </div>
+
+    <div class="card">
+      <h2>纠缠熵</h2>
+      <div id="entropy"></div>
+      <div class="note">S = −Tr(ρ log₂ ρ)，单位是比特。乘积态 S=0；最大纠缠时 S=1（单比特最多 1 bit）。</div>
+    </div>
+
+    <div class="card">
+      <h2>测量采样</h2>
+      <div class="toolgrid">
+        <button id="bshot1" class="hot">跑 1 次</button>
+        <button id="bshot100">跑 1000 次</button>
+      </div>
+      <div class="result" id="shotres"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+"use strict";
+
+/* ==============================================================
+   复数
+   ============================================================== */
+const c = (re, im = 0) => ({ re, im });
+const cadd = (a, b) => c(a.re + b.re, a.im + b.im);
+const cmul = (a, b) => c(a.re * b.re - a.im * b.im, a.re * b.im + a.im * b.re);
+const cconj = a => c(a.re, -a.im);
+const cabs2 = a => a.re * a.re + a.im * a.im;
+const cexp = t => c(Math.cos(t), Math.sin(t));
+const CPX0 = c(0);
+
+/* ==============================================================
+   门矩阵
+   ============================================================== */
+const S2 = Math.SQRT1_2;
+const U = {
+  I: [[c(1), c(0)], [c(0), c(1)]],
+  H: [[c(S2), c(S2)], [c(S2), c(-S2)]],
+  X: [[c(0), c(1)], [c(1), c(0)]],
+  Y: [[c(0), c(0, -1)], [c(0, 1), c(0)]],
+  Z: [[c(1), c(0)], [c(0), c(-1)]],
+  S: [[c(1), c(0)], [c(0), c(0, 1)]],
+  T: [[c(1), c(0)], [c(0), cexp(Math.PI / 4)]],
+  Sdg: [[c(1), c(0)], [c(0), c(0, -1)]],
+  Tdg: [[c(1), c(0)], [c(0), cexp(-Math.PI / 4)]]
+};
+
+let rotTheta = 90;                             // 度
+function rotGate(kind, deg) {
+  const a = deg * Math.PI / 180, h = a / 2;
+  if (kind === 'Rx') return [[c(Math.cos(h)), c(0, -Math.sin(h))], [c(0, -Math.sin(h)), c(Math.cos(h))]];
+  if (kind === 'Ry') return [[c(Math.cos(h)), c(-Math.sin(h))], [c(Math.sin(h)), c(Math.cos(h))]];
+  return [[cexp(-h), c(0)], [c(0), cexp(h)]];  // Rz
+}
+function gateMatrix(type) {
+  if (type === 'Rx' || type === 'Ry' || type === 'Rz') return rotGate(type, rotTheta);
+  return U[type] || U.I;
+}
+
+const TWO_QUBIT = new Set(['CNOT', 'CZ', 'SWAP']);
+
+/* ==============================================================
+   线路数据结构
+   gates[col][q] = null | {type} | {type:'CNOT'..., ctrl, targ} | {ref:true, owner}
+   ============================================================== */
+let N = 2;
+const NCOLS = 10;
+let gates = emptyGates();
+
+function emptyGates() {
+  return Array.from({ length: NCOLS }, () => new Array(N).fill(null));
+}
+
+/* ==============================================================
+   态矢量
+   ============================================================== */
+function basisState(index, n) {
+  const dim = 1 << n;
+  const psi = new Array(dim);
+  for (let i = 0; i < dim; i++) psi[i] = i === index ? c(1) : c(0);
+  return psi;
+}
+
+const qmask = (q, n) => 1 << (n - 1 - q);   // q0 是最高位
+
+function applySingle(psi, q, M, n) {
+  const mask = qmask(q, n);
+  const out = new Array(psi.length);
+  for (let i = 0; i < psi.length; i++) out[i] = psi[i];
+  for (let i = 0; i < psi.length; i++) {
+    if (i & mask) continue;
+    const j = i | mask;
+    const a = psi[i], b = psi[j];
+    out[i] = cadd(cmul(M[0][0], a), cmul(M[0][1], b));
+    out[j] = cadd(cmul(M[1][0], a), cmul(M[1][1], b));
+  }
+  return out;
+}
+
+function applyTwo(psi, type, ctrl, targ, n) {
+  const mc = qmask(ctrl, n), mt = qmask(targ, n);
+  const out = new Array(psi.length);
+  for (let i = 0; i < psi.length; i++) out[i] = psi[i];
+
+  if (type === 'CNOT') {
+    for (let i = 0; i < psi.length; i++) {
+      if ((i & mc) && !(i & mt)) {
+        const j = i | mt;
+        out[i] = psi[j];
+        out[j] = psi[i];
+      }
+    }
+  } else if (type === 'CZ') {
+    for (let i = 0; i < psi.length; i++) {
+      if ((i & mc) && (i & mt)) out[i] = c(-psi[i].re, -psi[i].im);
+    }
+  } else if (type === 'SWAP') {
+    for (let i = 0; i < psi.length; i++) {
+      const bi = (i & mc) ? 1 : 0, bj = (i & mt) ? 1 : 0;
+      if (bi === 0 && bj === 1) {
+        const j = (i | mc) & ~mt;
+        out[i] = psi[j];
+        out[j] = psi[i];
+      }
+    }
+  }
+  return out;
+}
+
+/* 测量：按概率采样 bit q，坍缩，返回 {psi, bit} */
+function measureQubit(psi, q, n) {
+  const mask = qmask(q, n);
+  let p1 = 0;
+  for (let i = 0; i < psi.length; i++) if (i & mask) p1 += cabs2(psi[i]);
+  const bit = Math.random() < p1 ? 1 : 0;
+
+  const out = psi.slice();
+  let norm = 0;
+  for (let i = 0; i < psi.length; i++) {
+    const b = (i & mask) ? 1 : 0;
+    if (b !== bit) out[i] = c(0);
+    else norm += cabs2(out[i]);
+  }
+  norm = Math.sqrt(norm);
+  if (norm > 1e-12) for (let i = 0; i < out.length; i++) out[i] = c(out[i].re / norm, out[i].im / norm);
+  return { psi: out, bit, prob: bit === 1 ? p1 : 1 - p1 };
+}
+
+/* ==============================================================
+   线路求值
+   ============================================================== */
+function evalCircuit() {
+  let psi = basisState(0, N);
+  const cbits = new Array(N).fill(null);
+
+  for (let col = 0; col < NCOLS; col++) {
+    // 先单比特门，再两比特门，顺序固定、可预测
+    for (let q = 0; q < N; q++) {
+      const g = gates[col][q];
+      if (!g || g.ref || TWO_QUBIT.has(g.type)) continue;
+      if (g.type === 'M') {
+        const res = measureQubit(psi, q, N);
+        psi = res.psi;
+        cbits[q] = res.bit;
+      } else {
+        psi = applySingle(psi, q, gateMatrix(g.type), N);
+      }
+    }
+    for (let q = 0; q < N; q++) {
+      const g = gates[col][q];
+      if (!g || g.ref || !TWO_QUBIT.has(g.type)) continue;
+      if (g.ctrl === q) psi = applyTwo(psi, g.type, g.ctrl, g.targ, N);
+    }
+  }
+  return { psi, cbits };
+}
+
+/* ==============================================================
+   约化密度矩阵 · 纠缠熵
+   ============================================================== */
+function reducedRho(psi, q, n) {
+  const mask = qmask(q, n);
+  let a = c(0), b = c(0), d = c(0);
+  for (let i = 0; i < psi.length; i++) {
+    if (i & mask) continue;
+    const j = i | mask;
+    const A = psi[i], B = psi[j];
+    a = cadd(a, cmul(A, cconj(A)));
+    b = cadd(b, cmul(A, cconj(B)));
+    d = cadd(d, cmul(B, cconj(B)));
+  }
+  return { a, b, d };
+}
+
+function blochOfRho(rho) {
+  return [2 * rho.b.re, -2 * rho.b.im, rho.a.re - rho.d.re];
+}
+
+function entropyOfRho(rho) {
+  const r = blochOfRho(rho);
+  const L = Math.min(1, Math.hypot(r[0], r[1], r[2]));
+  const lp = (1 + L) / 2, lm = (1 - L) / 2;
+  let S = 0;
+  if (lp > 1e-12) S -= lp * Math.log2(lp);
+  if (lm > 1e-12) S -= lm * Math.log2(lm);
+  return S;
+}
+
+/* ==============================================================
+   线路渲染
+   ============================================================== */
+const circuitEl = document.getElementById("circuit");
+const $ = id => document.getElementById(id);
+
+function gateLabel(type) {
+  if (type === 'Sdg') return 'S†';
+  if (type === 'Tdg') return 'T†';
+  if (type === 'M') return 'M';
+  if (type === 'Rx' || type === 'Ry' || type === 'Rz') return type;
+  return type;
+}
+
+function renderCircuit() {
+  circuitEl.style.gridTemplateColumns = `52px repeat(${NCOLS}, minmax(44px, 1fr))`;
+  circuitEl.innerHTML = "";
+
+  for (let q = 0; q < N; q++) {
+    const lab = document.createElement("div");
+    lab.className = "qlabel";
+    lab.innerHTML = `<b>q${q}</b>`;
+    circuitEl.appendChild(lab);
+
+    for (let col = 0; col < NCOLS; col++) {
+      const cell = document.createElement("div");
+      cell.className = "cell";
+      cell.dataset.q = q;
+      cell.dataset.col = col;
+      cell.innerHTML = `<div class="vline"></div>`;
+
+      const g = gates[col][q];
+      if (g) {
+        if (g.ref) {
+          // 两比特门的另一端
+          const owner = gates[col][g.owner];
+          cell.classList.add(g.owner < q ? "vup" : "vdown");
+          if (owner && owner.type === 'CNOT') {
+            const sp = document.createElement("div");
+            sp.className = "glyph plus";
+            sp.textContent = "⊕";
+            cell.appendChild(sp);
+          } else if (owner && owner.type === 'SWAP') {
+            const sp = document.createElement("div");
+            sp.className = "glyph";
+            sp.textContent = "×";
+            cell.appendChild(sp);
+          }
+        } else if (TWO_QUBIT.has(g.type)) {
+          const lo = Math.min(g.ctrl, g.targ), hi = Math.max(g.ctrl, g.targ);
+          cell.classList.add(q === lo ? "vdown" : "vup");
+          const sp = document.createElement("div");
+          if (g.type === 'CNOT') { sp.className = "glyph dot"; }
+          else if (g.type === 'SWAP') { sp.className = "glyph"; sp.textContent = "×"; }
+          else { sp.className = "glyph dot"; sp.textContent = ""; }
+          cell.appendChild(sp);
+        } else {
+          const sp = document.createElement("div");
+          sp.className = "glyph" + (g.type === 'M' ? " meas" : "");
+          sp.textContent = gateLabel(g.type);
+          cell.appendChild(sp);
+        }
+      }
+      circuitEl.appendChild(cell);
+    }
+  }
+  if (pendingCtrl) {
+    const el = circuitEl.querySelector(`.cell[data-q="${pendingCtrl.q}"][data-col="${pendingCtrl.col}"]`);
+    if (el) {
+      el.classList.add("pending");
+      const sp = document.createElement("div");
+      sp.className = "glyph dot";
+      el.appendChild(sp);
+    }
+  }
+}
+
+/* ==============================================================
+   编辑交互
+   ============================================================== */
+let tool = 'H';
+let pendingCtrl = null;
+
+function ownerAt(col, q) {
+  const g = gates[col][q];
+  if (!g) return null;
+  return g.ref ? g.owner : q;
+}
+
+function eraseAt(col, q) {
+  const owner = ownerAt(col, q);
+  if (owner === null) return false;
+  const g = gates[col][owner];
+  if (g && TWO_QUBIT.has(g.type)) gates[col][g.targ] = null;
+  gates[col][owner] = null;
+  return true;
+}
+
+circuitEl.addEventListener("click", e => {
+  const cell = e.target.closest(".cell");
+  if (!cell) return;
+  const col = +cell.dataset.col, q = +cell.dataset.q;
+
+  if (tool === 'erase') {
+    eraseAt(col, q);
+    pendingCtrl = null;
+  } else if (TWO_QUBIT.has(tool)) {
+    if (!pendingCtrl) {
+      if (gates[col][q]) eraseAt(col, q);
+      else pendingCtrl = { col, q };
+    } else {
+      if (pendingCtrl.col !== col) { pendingCtrl = { col, q }; }
+      else if (pendingCtrl.q === q) { pendingCtrl = null; }
+      else {
+        const ctrl = pendingCtrl.q, targ = q;
+        eraseAt(col, ctrl); eraseAt(col, targ);
+        gates[col][ctrl] = { type: tool, ctrl, targ };
+        gates[col][targ] = { ref: true, owner: ctrl };
+        pendingCtrl = null;
+      }
+    }
+  } else {
+    if (gates[col][q]) eraseAt(col, q);
+    else gates[col][q] = { type: tool };
+    pendingCtrl = null;
+  }
+  renderCircuit();
+  refresh();
+});
+
+circuitEl.addEventListener("contextmenu", e => {
+  const cell = e.target.closest(".cell");
+  if (!cell) return;
+  e.preventDefault();
+  eraseAt(+cell.dataset.col, +cell.dataset.q);
+  pendingCtrl = null;
+  renderCircuit();
+  refresh();
+});
+
+// 悬停预览
+circuitEl.addEventListener("mousemove", e => {
+  const cell = e.target.closest(".cell");
+  document.querySelectorAll(".cell.hoverok").forEach(el => el.classList.remove("hoverok"));
+  if (!cell || !pendingCtrl) return;
+  if (+cell.dataset.col === pendingCtrl.col && +cell.dataset.q !== pendingCtrl.q) {
+    cell.classList.add("hoverok");
+  }
+});
+
+document.querySelectorAll("#tools button").forEach(btn => {
+  btn.onclick = () => {
+    tool = btn.dataset.tool;
+    pendingCtrl = null;
+    document.querySelectorAll("#tools button").forEach(b => b.classList.toggle("on", b === btn));
+    $("toolhint").textContent = tool === 'erase'
+      ? "橡皮模式：点任意门把它删掉。"
+      : TWO_QUBIT.has(tool)
+        ? `${tool}：先点控制位，再点目标位（同一列）。`
+        : tool === 'M'
+          ? "测量门：该比特在这里被测量并坍缩，结果是随机的一次采样。改线路会重新采样。"
+          : "点格子放门。再点一次已有的门可以删掉。";
+    renderCircuit();
+  };
+});
+
+$("sthetac").addEventListener("input", () => {
+  rotTheta = +$("sthetac").value;
+  $("lthetac").textContent = rotTheta + "°";
+  refresh();
+});
+
+/* ==============================================================
+   比特数 / 预设 / 清空
+   ============================================================== */
+function setN(n) {
+  N = n;
+  gates = emptyGates();
+  pendingCtrl = null;
+  document.querySelectorAll("#qubitchoice button").forEach(b => b.classList.toggle("on", +b.dataset.n === n));
+  setTool('H');
+  renderCircuit();
+  refresh();
+}
+
+function setTool(t) {
+  tool = t;
+  document.querySelectorAll("#tools button").forEach(b => b.classList.toggle("on", b.dataset.tool === t));
+}
+
+document.querySelectorAll("#qubitchoice button").forEach(btn => {
+  btn.onclick = () => setN(+btn.dataset.n);
+});
+
+const PRESETS = {
+  bell: { n: 2, ops: [[0, 0, 'H'], [1, 0, 'CNOT', 1]] },
+  ghz3: { n: 3, ops: [[0, 0, 'H'], [1, 0, 'CNOT', 1], [2, 1, 'CNOT', 2]] },
+  ghz4: { n: 4, ops: [[0, 0, 'H'], [1, 0, 'CNOT', 1], [2, 1, 'CNOT', 2], [3, 2, 'CNOT', 3]] },
+  dense: {
+    n: 2,
+    ops: [
+      [0, 0, 'H'], [1, 0, 'CNOT', 1],        // 制备 Bell 态
+      [2, 0, 'Z'], [2, 1, 'X'],              // Alice 编码经典比特 11
+      [4, 0, 'CNOT', 1], [5, 0, 'H']         // Bob 做 Bell 测量
+    ]
+  },
+  allh: { n: 0, ops: [] }
+};
+
+document.querySelectorAll("#presets button").forEach(btn => {
+  btn.onclick = () => loadPreset(btn.dataset.preset);
+});
+
+function loadPreset(name) {
+  const p = PRESETS[name];
+  if (name === 'allh') {
+    gates = emptyGates();
+    for (let q = 0; q < N; q++) gates[0][q] = { type: 'H' };
+    pendingCtrl = null; renderCircuit(); refresh(); return;
+  }
+  N = p.n;
+  gates = emptyGates();
+  document.querySelectorAll("#qubitchoice button").forEach(b => b.classList.toggle("on", +b.dataset.n === N));
+  for (const op of p.ops) {
+    const [col, q, type, targ] = op;
+    if (TWO_QUBIT.has(type)) {
+      gates[col][q] = { type, ctrl: q, targ };
+      gates[col][targ] = { ref: true, owner: q };
+    } else {
+      gates[col][q] = { type };
+    }
+  }
+  pendingCtrl = null;
+  renderCircuit();
+  refresh();
+}
+
+$("bclear").onclick = () => {
+  gates = emptyGates();
+  pendingCtrl = null;
+  renderCircuit();
+  refresh();
+};
+
+/* ==============================================================
+   结果面板
+   ============================================================== */
+let current = { psi: basisState(0, 2), cbits: [null, null] };
+
+const probCanvas = document.getElementById("probchart");
+const pctx = probCanvas.getContext("2d");
+
+function resizeProb() {
+  const rect = probCanvas.getBoundingClientRect();
+  const dpr = window.devicePixelRatio || 1;
+  probCanvas.width = Math.max(1, Math.round(rect.width * dpr));
+  probCanvas.height = Math.max(1, Math.round(rect.height * dpr));
+  pctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  probCanvas._w = rect.width; probCanvas._h = rect.height;
+}
+
+function drawProb() {
+  const w = probCanvas._w || 300, h = probCanvas._h || 170;
+  pctx.clearRect(0, 0, w, h);
+
+  const psi = current.psi;
+  const dim = psi.length;
+  const padL = 30, padB = 22, padT = 8;
+  const plotH = h - padB - padT;
+  const slot = (w - padL - 6) / dim;
+  const barW = Math.min(slot * 0.72, 46);
+
+  pctx.strokeStyle = "rgba(120,140,175,0.16)";
+  pctx.lineWidth = 1;
+  for (const p of [0, 0.25, 0.5, 0.75, 1]) {
+    const y = padT + plotH * (1 - p);
+    pctx.beginPath(); pctx.moveTo(padL, y); pctx.lineTo(w - 6, y); pctx.stroke();
+    pctx.fillStyle = "#5f6a7d";
+    pctx.font = "10px Consolas, monospace";
+    pctx.textAlign = "right"; pctx.textBaseline = "middle";
+    pctx.fillText(p.toFixed(2), padL - 5, y);
+  }
+
+  for (let i = 0; i < dim; i++) {
+    const a = psi[i];
+    const p = cabs2(a);
+    const x = padL + slot * i + (slot - barW) / 2;
+    const bh = plotH * Math.min(1, p);
+    const y = padT + plotH - bh;
+
+    let hue = 0, sat = 0;
+    if (p > 1e-9) {
+      const ph = Math.atan2(a.im, a.re);          // −π..π
+      hue = (ph + Math.PI) / (2 * Math.PI) * 360;
+      sat = 62;
+    }
+    pctx.fillStyle = p > 1e-9 ? `hsl(${hue.toFixed(0)}, ${sat}%, 58%)` : "#232c3d";
+    pctx.fillRect(x, y, barW, Math.max(bh, p > 1e-9 ? 1.5 : 1));
+
+    pctx.fillStyle = "#7f8ca3";
+    pctx.font = "10px Consolas, monospace";
+    pctx.textAlign = "center"; pctx.textBaseline = "top";
+    const lbl = "|" + i.toString(2).padStart(N, "0") + "⟩";
+    pctx.fillText(lbl, x + barW / 2, padT + plotH + 5);
+  }
+}
+
+function drawAmplTable() {
+  const psi = current.psi;
+  let html = "";
+  for (let i = 0; i < psi.length; i++) {
+    const a = psi[i];
+    const p = cabs2(a);
+    if (p < 1e-6) continue;
+    const re = Math.abs(a.re) < 5e-4 ? "0" : a.re.toFixed(4);
+    const im = a.im;
+    let v = re;
+    if (Math.abs(im) >= 5e-4) v += (im < 0 ? " − " : " + ") + Math.abs(im).toFixed(4) + "i";
+    html += `<div><span class="k">|${i.toString(2).padStart(N, "0")}⟩</span>` +
+            `<span class="v">${v}</span><span class="p">${(p * 100).toFixed(1)}%</span></div>`;
+  }
+  $("ampl").innerHTML = html || `<div style="color:#5f6a7d">（所有振幅都接近 0）</div>`;
+}
+
+const blochRow = $("blochrow");
+
+function buildBlochCells() {
+  blochRow.innerHTML = "";
+  for (let q = 0; q < N; q++) {
+    const wrap = document.createElement("div");
+    wrap.className = "bcell";
+    const cv = document.createElement("canvas");
+    wrap.appendChild(cv);
+    const cap = document.createElement("span");
+    cap.innerHTML = `q${q}<br><b id="blq${q}">—</b>`;
+    wrap.appendChild(cap);
+    blochRow.appendChild(wrap);
+    cv._ctx = cv.getContext("2d");
+  }
+}
+
+function drawMiniBloch(cv, r) {
+  const ctx = cv._ctx;
+  const dpr = window.devicePixelRatio || 1;
+  const w = 106, h = 106;
+  if (cv.width !== w * dpr) {
+    cv.width = w * dpr; cv.height = h * dpr;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+  ctx.clearRect(0, 0, w, h);
+  const cx = w / 2, cy = h / 2, R = 38;
+
+  // 赤道椭圆
+  ctx.strokeStyle = "rgba(110,130,165,0.4)";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.ellipse(cx, cy, R, R * 0.34, 0, 0, Math.PI * 2);
+  ctx.stroke();
+  // 球轮廓
+  ctx.beginPath();
+  ctx.arc(cx, cy, R, 0, Math.PI * 2);
+  ctx.strokeStyle = "rgba(110,130,165,0.55)";
+  ctx.stroke();
+  // 竖轴
+  ctx.setLineDash([2, 3]);
+  ctx.beginPath(); ctx.moveTo(cx, cy - R); ctx.lineTo(cx, cy + R); ctx.stroke();
+  ctx.setLineDash([]);
+
+  // 极点标记
+  ctx.fillStyle = "#3f5a80"; ctx.font = "10px Consolas, monospace";
+  ctx.textAlign = "center";
+  ctx.fillText("0", cx, cy - R - 4);
+  ctx.fillText("1", cx, cy + R + 11);
+
+  // 固定视角：z 竖直向屏幕上方，y 指向屏幕内的斜方向
+  // 投影：(x,y,z) → (cx + (x*cos30 − y*cos30), cy − z*R − (x*sin30 + y*sin30)*0.34*R)
+  const ang = -Math.PI / 6;
+  const px = (x, y, z) =>
+    cx + (x * Math.cos(ang) - y * Math.sin(ang)) * R;
+  const py = (x, y, z) =>
+    cy - z * R - (x * Math.sin(ang) + y * Math.cos(ang)) * R * 0.34;
+
+  const L = Math.hypot(r[0], r[1], r[2]);
+  const col = L > 0.995 ? "#ff4d6d" : L < 0.02 ? "#6b7688" : "#b18ad0";
+
+  ctx.strokeStyle = col; ctx.lineWidth = 2.2; ctx.lineCap = "round";
+  ctx.beginPath();
+  ctx.moveTo(cx, cy);
+  ctx.lineTo(px(r[0], r[1], r[2]), py(r[0], r[1], r[2]));
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.arc(px(r[0], r[1], r[2]), py(r[0], r[1], r[2]), 3.2, 0, Math.PI * 2);
+  ctx.fillStyle = col; ctx.fill();
+}
+
+function refresh() {
+  current = evalCircuit();
+  const psi = current.psi;
+
+  drawProb();
+  drawAmplTable();
+  buildBlochCellsIfNeeded();
+
+  const entropies = [];
+  for (let q = 0; q < N; q++) {
+    const rho = reducedRho(psi, q, N);
+    const r = blochOfRho(rho);
+    const S = entropyOfRho(rho);
+    entropies.push(S);
+    const cv = blochRow.children[q].firstChild;
+    drawMiniBloch(cv, r);
+    const L = Math.hypot(r[0], r[1], r[2]);
+    $(`blq${q}`).textContent = `|r|=${L.toFixed(2)}  S=${S.toFixed(3)}`;
+  }
+
+  // 纠缠熵面板
+  let html = "";
+  for (let q = 0; q < N; q++) {
+    html += `<div class="kv"><span>q${q} 约化态熵</span><span>${entropies[q].toFixed(4)} bit</span></div>` +
+            `<div class="entbar"><i style="width:${(entropies[q] * 100).toFixed(1)}%"></i></div>`;
+  }
+  const maxS = Math.max(...entropies);
+  html += `<div class="kv" style="margin-top:8px"><span>最大单比特纠缠熵</span><span>${maxS.toFixed(4)} bit</span></div>`;
+
+  // 纯态判据
+  const tot = psi.reduce((s, a) => s + cabs2(a), 0);
+  const pur = psi.reduce((s, a) => s + cabs2(a) ** 2, 0);
+  const isPure = Math.abs(pur / (tot * tot) - 1) < 1e-9;
+  html += `<div class="kv"><span>总态纯度</span><span>${(pur / (tot * tot)).toFixed(6)}${isPure ? "（纯态）" : "（混态，测量已发生）"}</span></div>`;
+  $("entropy").innerHTML = html;
+
+  // 有测量门时提示
+  const hasMeas = gates.some(col => col.some(g => g && g.type === 'M'));
+  $("warn").textContent = hasMeas
+    ? "线路里有测量门：结果是随机采样的一次实现，改线路或点「跑 1 次」会重新采样。"
+    : "";
+}
+
+let lastN = -1;
+function buildBlochCellsIfNeeded() {
+  if (lastN !== N) { buildBlochCells(); lastN = N; }
+}
+
+/* ==============================================================
+   采样
+   ============================================================== */
+function sampleOnce() {
+  const psi = current.psi;
+  let tot = 0;
+  for (const a of psi) tot += cabs2(a);
+  if (tot < 1e-12) return 0;
+  let x = Math.random() * tot, acc = 0;
+  for (let i = 0; i < psi.length; i++) {
+    acc += cabs2(psi[i]);
+    if (x <= acc) return i;
+  }
+  return psi.length - 1;
+}
+
+function fmtIdx(i) { return "|" + i.toString(2).padStart(N, "0") + "⟩"; }
+
+$("bshot1").onclick = () => {
+  const i = sampleOnce();
+  $("shotres").textContent = `采样结果：${fmtIdx(i)}　（本次）`;
+};
+
+$("bshot100").onclick = () => {
+  const counts = new Map();
+  const M = 1000;
+  for (let k = 0; k < M; k++) {
+    const i = sampleOnce();
+    counts.set(i, (counts.get(i) || 0) + 1);
+  }
+  const top = [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5);
+  const theory = new Map();
+  for (let i = 0; i < current.psi.length; i++) {
+    const p = cabs2(current.psi[i]);
+    if (p > 1e-6) theory.set(i, p);
+  }
+  let txt = `${M} 次采样：`;
+  txt += top.map(([i, n]) => `${fmtIdx(i)} ${n}次(${(n / M * 100).toFixed(1)}%)`).join("　");
+  $("shotres").textContent = txt;
+
+  const lines = [...theory.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5)
+    .map(([i, p]) => `${fmtIdx(i)} 理论 ${(p * 100).toFixed(1)}%`)
+    .join("　");
+  $("shotres").textContent += top.length ? `\n理论值：${lines}` : "";
+  $("shotres").style.whiteSpace = "pre-line";
+};
+
+/* ==============================================================
+   启动
+   ============================================================== */
+resizeProb();
+window.addEventListener("resize", () => { resizeProb(); drawProb(); });
+renderCircuit();
+refresh();
+loadPreset('bell');
+</script>
+</body>
+</html>
