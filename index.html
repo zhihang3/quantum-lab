@@ -511,7 +511,7 @@ canvas.plot { display: block; width: 100%; border-radius: var(--r-s); background
    量子入门
    ============================================================ */
 #panel-intro { display: flex; }
-.intro-scroll { flex: 1; min-height: 0; overflow-y: auto; padding: 22px 22px 64px; width: 100%; }
+.intro-scroll { flex: 1; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; padding: 22px 22px 64px; width: 100%; }
 .intro-inner { max-width: 860px; margin: 0 auto; }
 
 .intro-hero {
@@ -569,19 +569,18 @@ canvas.plot { display: block; width: 100%; border-radius: var(--r-s); background
 .bitcol .sub b { color: #d3e2ff; font-weight: 600; }
 
 /* —— 叠加态硬币 —— */
-.coindemo { perspective: 520px; }
 .coin {
   position: relative; width: 62px; height: 62px; margin: 0 auto;
-  transform-style: preserve-3d; animation: coinSpin 3.2s linear infinite;
 }
 .coin .face {
   position: absolute; inset: 0; border-radius: 50%; display: grid; place-items: center;
   font-family: Consolas, ui-monospace, monospace; font-size: 20px; font-weight: 700;
-  backface-visibility: hidden;
   background: linear-gradient(145deg, #2c4872, #16203a); border: 1px solid #3b5b8f; color: #9ed0ff;
+  animation: coinSwap 3.2s step-end infinite;
 }
-.coin .back { transform: rotateY(180deg); background: linear-gradient(145deg, #4a2c72, #1f163a); border-color: #5b3b8f; color: #d0b6ff; }
-@keyframes coinSpin { from { transform: rotateY(0); } to { transform: rotateY(360deg); } }
+.coin .back { background: linear-gradient(145deg, #4a2c72, #1f163a); border-color: #5b3b8f; color: #d0b6ff; animation: coinSwapB 3.2s step-end infinite; }
+@keyframes coinSwap { 0%,49% { opacity: 1; } 50%,100% { opacity: 0; } }
+@keyframes coinSwapB { 0%,49% { opacity: 0; } 50%,100% { opacity: 1; } }
 
 /* —— 测量坍缩 —— */
 .measbox {
@@ -635,8 +634,8 @@ canvas.plot { display: block; width: 100%; border-radius: var(--r-s); background
 }
 .cta-btns button:hover { border-color: #4d9fff; transform: translateY(-1px); box-shadow: 0 4px 16px rgba(43,108,176,.3); }
 .cta-btns button:active { transform: none; }
-@media (prefers-reduced-motion: reduce) {
-  .bitslot .b0, .bitslot .b1, .bitslot.q, .coin, .measbox.mystery,
+@media (prefers-reduced-motion: reduce), (max-width: 768px) {
+  .bitslot .b0, .bitslot .b1, .bitslot.q, .coin .face, .coin .back, .measbox.mystery,
   .measbox.result .r0, .measbox.result .r1, .gatebox, .entq, .entlink { animation: none !important; }
 }
 </style>
