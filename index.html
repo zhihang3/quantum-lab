@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>量子实验室 · 布洛赫球与量子线路</title>
-<meta name="description" content="交互式量子计算教学演示：单比特布洛赫球（量子门、拉比振荡、退相干、测量）与多比特量子线路仿真（纠缠、约化密度矩阵、纠缠熵）。">
+<title>量子实验室 · 量子入门 · 布洛赫球 · 量子线路</title>
+<meta name="description" content="零基础友好的交互式量子计算教学：量子入门（叠加、测量、纠缠）→ 单比特布洛赫球（量子门、拉比振荡、退相干）→ 多比特量子线路仿真。">
 <meta name="color-scheme" content="dark">
 <meta name="theme-color" content="#070910">
 <style>
@@ -508,6 +508,132 @@ canvas.plot { display: block; width: 100%; border-radius: var(--r-s); background
   .tab { padding: 7px 13px; font-size: 12.5px; }
   .brand h1 { font-size: 14px; }
 }
+
+/* ============================================================
+   量子入门
+   ============================================================ */
+#panel-intro { display: flex; }
+.intro-scroll { flex: 1; min-height: 0; overflow-y: auto; padding: 22px 22px 64px; width: 100%; }
+.intro-inner { max-width: 860px; margin: 0 auto; }
+
+.intro-hero {
+  margin-bottom: 16px; padding: 20px 22px;
+  border: 1px solid #2a3a52; border-radius: var(--r);
+  background: linear-gradient(135deg, rgba(43,108,176,.15), rgba(124,92,214,.10)), rgba(13,20,33,.55);
+}
+.intro-hero .tag {
+  display: inline-block; font-size: 11px; color: #9ed0ff; letter-spacing: 1.5px;
+  background: rgba(77,159,255,.12); border: 1px solid rgba(77,159,255,.28);
+  padding: 3px 10px; border-radius: 20px; margin-bottom: 10px;
+}
+.intro-hero h2 { margin: 0 0 6px; font-size: 21px; font-weight: 700; letter-spacing: .2px; }
+.intro-hero p { margin: 0; font-size: 13.5px; color: var(--text-2); line-height: 1.75; }
+
+.intro-card > h2 { color: #7fa8d8; }
+.intro-card p { margin: 0; font-size: 13px; color: var(--text-2); line-height: 1.8; }
+.intro-card p b { color: #d3e2ff; font-weight: 600; }
+.intro-card code {
+  font-family: Consolas, ui-monospace, monospace; font-size: 12.5px;
+  background: rgba(77,159,255,.1); color: #9ed0ff; padding: 1px 5px; border-radius: 4px;
+}
+.intro-tip { margin-top: 10px; font-size: 12px; color: var(--text-3); line-height: 1.7; border-left: 2px solid #2b6cb0; padding-left: 10px; }
+
+/* —— 演示区通用 —— */
+.demobox { display: flex; align-items: center; justify-content: center; gap: 12px; flex-wrap: wrap; margin: 14px 0 4px; }
+
+/* —— 经典 vs 量子比特 —— */
+.bitcol { flex: 1; min-width: 130px; text-align: center; }
+.bitcol .lbl { font-size: 12px; color: var(--text-3); margin-bottom: 9px; letter-spacing: .5px; }
+.bitslot {
+  position: relative; width: 60px; height: 60px; margin: 0 auto;
+  border-radius: 12px; display: grid; place-items: center;
+  background: #141c2b; border: 1px solid #2a3a52;
+  font-family: Consolas, ui-monospace, monospace; font-size: 23px; font-weight: 700;
+}
+.bitslot span { position: absolute; inset: 0; display: grid; place-items: center; }
+.bitslot .b0 { color: var(--text-3); animation: swapA 2.6s step-end infinite; }
+.bitslot .b1 { color: var(--accent); animation: swapB 2.6s step-end infinite; }
+@keyframes swapA { 0%,49% { opacity: 1; } 50%,100% { opacity: 0; } }
+@keyframes swapB { 0%,49% { opacity: 0; } 50%,100% { opacity: 1; } }
+
+.bitslot.q {
+  border-radius: 50%; border-color: #3b5b8f;
+  background: radial-gradient(circle at 35% 30%, #2c4872, #131c2e);
+  animation: qPulse 2.6s ease-in-out infinite;
+}
+.bitslot.q .qnum { color: #cfe2ff; opacity: .9; }
+@keyframes qPulse {
+  0%,100% { box-shadow: 0 0 12px rgba(77,159,255,.28); }
+  50%     { box-shadow: 0 0 30px rgba(77,159,255,.6); }
+}
+.bitcol .sub { font-size: 12px; color: var(--text-3); margin-top: 8px; }
+.bitcol .sub b { color: #d3e2ff; font-weight: 600; }
+
+/* —— 叠加态硬币 —— */
+.coindemo { perspective: 520px; }
+.coin {
+  position: relative; width: 62px; height: 62px; margin: 0 auto;
+  transform-style: preserve-3d; animation: coinSpin 3.2s linear infinite;
+}
+.coin .face {
+  position: absolute; inset: 0; border-radius: 50%; display: grid; place-items: center;
+  font-family: Consolas, ui-monospace, monospace; font-size: 20px; font-weight: 700;
+  backface-visibility: hidden;
+  background: linear-gradient(145deg, #2c4872, #16203a); border: 1px solid #3b5b8f; color: #9ed0ff;
+}
+.coin .back { transform: rotateY(180deg); background: linear-gradient(145deg, #4a2c72, #1f163a); border-color: #5b3b8f; color: #d0b6ff; }
+@keyframes coinSpin { from { transform: rotateY(0); } to { transform: rotateY(360deg); } }
+
+/* —— 测量坍缩 —— */
+.measbox {
+  position: relative; width: 58px; height: 58px; border-radius: 12px;
+  display: grid; place-items: center; background: #141c2b; border: 1px solid #2a3a52;
+  font-family: Consolas, ui-monospace, monospace; font-size: 22px; font-weight: 700;
+}
+.measbox.mystery { color: var(--violet); border-color: #3b2a52; animation: qPulse 2.2s ease-in-out infinite; }
+.measbox.result span { position: absolute; inset: 0; display: grid; place-items: center; }
+.measbox.result .r0 { color: var(--amber); animation: swapA 2.2s step-end infinite; }
+.measbox.result .r1 { color: var(--amber); animation: swapB 2.2s step-end infinite; }
+.meas-arrow { color: var(--text-3); font-size: 13px; }
+
+/* —— 量子门 —— */
+.qstate { font-family: Consolas, ui-monospace, monospace; font-size: 15px; color: #8dc6ff; }
+.gatebox {
+  width: 44px; height: 44px; border-radius: 10px; display: grid; place-items: center;
+  font-family: Consolas, ui-monospace, monospace; font-size: 18px; font-weight: 700; color: #d3e2ff;
+  background: linear-gradient(180deg, #22314f, #182238); border: 1px solid #2f4d80;
+  animation: qPulse 2.4s ease-in-out infinite;
+}
+
+/* —— 纠缠 —— */
+.entq {
+  width: 50px; height: 50px; border-radius: 50%; display: grid; place-items: center;
+  font-size: 15px; font-weight: 700; color: #e9d8ff;
+  background: radial-gradient(circle at 35% 30%, #4a2c72, #1f163a); border: 1px solid #5b3b8f;
+  animation: entGlow 2s ease-in-out infinite;
+}
+.entq.b { animation-delay: 1s; }
+.entlink {
+  flex: 0 0 auto; width: 46px; height: 2px;
+  background: repeating-linear-gradient(90deg, #7c5cd6 0 6px, transparent 6px 12px);
+  animation: linkFlow 1.2s linear infinite;
+}
+@keyframes entGlow {
+  0%,100% { box-shadow: 0 0 10px rgba(167,139,250,.28); }
+  50%     { box-shadow: 0 0 26px rgba(167,139,250,.6); }
+}
+@keyframes linkFlow { from { background-position: 0 0; } to { background-position: -12px 0; } }
+
+/* —— 行动按钮 —— */
+.cta-btns { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 12px; }
+.cta-btns button {
+  appearance: none; border: 1px solid #2f4d80; cursor: pointer; font-family: inherit;
+  font-size: 13.5px; color: #d6e6ff; padding: 11px 18px; border-radius: 10px;
+  background: linear-gradient(180deg, #22314f, #182238);
+  transition: transform .15s, box-shadow .15s, border-color .15s;
+}
+.cta-btns button:hover { border-color: #4d9fff; transform: translateY(-1px); box-shadow: 0 4px 16px rgba(43,108,176,.3); }
+.cta-btns button:active { transform: none; }
 </style>
 </head>
 <body>
@@ -521,8 +647,10 @@ canvas.plot { display: block; width: 100%; border-radius: var(--r-s); background
     </div>
   </div>
   <nav class="tabs" role="tablist" aria-label="视图切换">
-    <button class="tab active" data-tab="bloch" role="tab" id="tab-bloch"
-            aria-selected="true" aria-controls="panel-bloch"><span class="dot" aria-hidden="true"></span>布洛赫球</button>
+    <button class="tab active" data-tab="intro" role="tab" id="tab-intro"
+            aria-selected="true" aria-controls="panel-intro"><span class="dot" aria-hidden="true"></span>量子入门</button>
+    <button class="tab" data-tab="bloch" role="tab" id="tab-bloch" tabindex="-1"
+            aria-selected="false" aria-controls="panel-bloch"><span class="dot" aria-hidden="true"></span>布洛赫球</button>
     <button class="tab" data-tab="circuit" role="tab" id="tab-circuit" tabindex="-1"
             aria-selected="false" aria-controls="panel-circuit"><span class="dot" aria-hidden="true"></span>量子线路</button>
   </nav>
@@ -531,9 +659,93 @@ canvas.plot { display: block; width: 100%; border-radius: var(--r-s); background
 <main>
 
 <!-- ═══════════════════════════════════════════════════════════
+     面板 0 · 量子入门
+     ═══════════════════════════════════════════════════════════ -->
+<section class="panel active" id="panel-intro" role="tabpanel" aria-labelledby="tab-intro">
+<div class="intro-scroll">
+<div class="intro-inner">
+
+  <div class="intro-hero">
+    <span class="tag">零基础友好</span>
+    <h2>量子计算，从直觉开始</h2>
+    <p>先别看公式。量子没那么玄——五个小概念，配上会动的示意图，三分钟看懂它在讲什么。</p>
+  </div>
+
+  <div class="card intro-card">
+    <h2>① 经典比特 vs 量子比特</h2>
+    <div class="demobox">
+      <div class="bitcol">
+        <div class="lbl">经典比特</div>
+        <div class="bitslot"><span class="b0">0</span><span class="b1">1</span></div>
+        <div class="sub"><b>非此即彼</b>：要么 0，要么 1</div>
+      </div>
+      <div class="bitcol">
+        <div class="lbl">量子比特</div>
+        <div class="bitslot q"><span class="qnum">0 + 1</span></div>
+        <div class="sub"><b>叠加</b>：0 和 1 同时存在</div>
+      </div>
+    </div>
+    <p>你手机里的比特，像一个开关，永远只能停在 <code>0</code> 或 <code>1</code>。而量子比特（<b>qubit</b>）可以「既 0 又 1」——直到有人去看它。</p>
+  </div>
+
+  <div class="card intro-card">
+    <h2>② 叠加态：一枚正在旋转的硬币</h2>
+    <div class="demobox">
+      <div class="coindemo">
+        <div class="coin"><span class="face">0</span><span class="face back">1</span></div>
+      </div>
+    </div>
+    <p>想象一枚在空中旋转的硬币：它不是正面、也不是反面，而是<b>正反同时存在</b>。量子比特的叠加态就是这样——<code>|0⟩</code> 和 <code>|1⟩</code> 按一定比例同时存在。</p>
+    <div class="intro-tip">但硬币总会落地。叠加态也一样：只要一「测量」，它就会固定成某一个结果。</div>
+  </div>
+
+  <div class="card intro-card">
+    <h2>③ 测量：一「看」就坍缩</h2>
+    <div class="demobox">
+      <div class="measbox mystery">?</div>
+      <span class="meas-arrow">— 测量 →</span>
+      <div class="measbox result"><span class="r0">0</span><span class="r1">1</span></div>
+    </div>
+    <p>叠加态里藏着「多种可能性」。你一测量，它就<b>瞬间坍缩</b>成一个确定的值。落到哪个是<b>随机</b>的，但概率由叠加比例决定——比如 <code>50/50</code> 的叠加，测出 0 和 1 各一半概率。</p>
+  </div>
+
+  <div class="card intro-card">
+    <h2>④ 量子门：操作量子比特的旋钮</h2>
+    <div class="demobox">
+      <span class="qstate">|0⟩</span>
+      <span class="gatebox">H</span>
+      <span class="qstate">|0⟩ + |1⟩</span>
+    </div>
+    <p>量子门就是「操作量子比特的旋钮」。上面这个 <code>H</code>（哈达玛门）最经典：把确定的 <code>|0⟩</code> 转成 <b>50/50 的叠加态</b>。这就是「量子线路」里每一个小方块在做的事。</p>
+  </div>
+
+  <div class="card intro-card">
+    <h2>⑤ 纠缠：命运绑定的两个比特</h2>
+    <div class="demobox">
+      <div class="entq">A</div>
+      <div class="entlink"></div>
+      <div class="entq b">B</div>
+    </div>
+    <p>两个量子比特可以「<b>纠缠</b>」：它们的命运绑在一起。不管隔多远，测其中一个，另一个的状态<b>立刻确定</b>。爱因斯坦把它叫作「幽灵般的超距作用」——这是量子计算机真正的力量来源。</p>
+  </div>
+
+  <div class="card intro-card">
+    <h2>⑥ 概念懂了，动手试试</h2>
+    <p>光看不如上手。这两个工具就是上面五个概念的「实物版」：</p>
+    <div class="cta-btns">
+      <button data-goto="bloch">🎯 布洛赫球 · 看单比特叠加</button>
+      <button data-goto="circuit">🔗 量子线路 · 玩多比特纠缠</button>
+    </div>
+  </div>
+
+</div>
+</div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════
      面板 1 · 单比特布洛赫球
      ═══════════════════════════════════════════════════════════ -->
-<section class="panel active" id="panel-bloch" role="tabpanel" aria-labelledby="tab-bloch">
+<section class="panel" id="panel-bloch" role="tabpanel" aria-labelledby="tab-bloch">
 <div class="split">
 
   <div class="stage">
@@ -2440,19 +2652,19 @@ return {
    标签页切换
    ═══════════════════════════════════════════════════════════ */
 (function () {
-  const panels = { bloch: $("panel-bloch"), circuit: $("panel-circuit") };
+  const panels = { intro: $("panel-intro"), bloch: $("panel-bloch"), circuit: $("panel-circuit") };
   const mods = { bloch: Bloch, circuit: Circuit };
   const names = Object.keys(panels);
-  let active = 'bloch';
+  let active = 'intro';
 
   function activate(name) {
     if (name === active) return;
     panels[active].classList.remove("active");
-    mods[active].hide();
+    if (mods[active]) mods[active].hide();
     active = name;
     panels[name].classList.add("active");
-    // 布局完成后再让画布按新尺寸重算
-    requestAnimationFrame(() => mods[name].show());
+    // 布局完成后再让画布按新尺寸重算（intro 面板没有渲染循环，跳过）
+    if (mods[name]) requestAnimationFrame(() => mods[name].show());
   }
 
   function select(btn, focus) {
@@ -2477,7 +2689,15 @@ return {
     });
   });
 
-  requestAnimationFrame(() => Bloch.show());
+  // 入门页里的「去动手」按钮：点击切换到对应面板
+  $$("#panel-intro [data-goto]").forEach(b => {
+    b.onclick = () => {
+      const target = $$(".tab").find(t => t.dataset.tab === b.dataset.goto);
+      if (target) select(target, false);
+    };
+  });
+
+  // 默认打开「量子入门」，无需主动 show 任何画布
 
   // 测试钩子：假 DOM 里点不动标签，这里直接暴露「按名字切面板」的入口
   if (globalThis.__TEST__) globalThis.__TAB__ = activate;
