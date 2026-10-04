@@ -508,5 +508,21 @@ group('预设按钮 · 接线没接错容器');
         ['bell', 'ghz3', 'ghz4', 'dense'].every(p => new RegExp('\\b' + p + ':').test(src)));
 }
 
+group('面板显隐 · ID 权重没压过 .panel');
+{
+  /* 曾经 #panel-intro{display:flex}（ID 选择器，权重 1,0,0）压过 .panel{display:none}（类，0,1,0），
+     入门面板永远可见，切到布洛赫球时两块面板同屏把一屏劈成两半。
+     这里盯住「面板的 display 只能由 .panel 系列控制」。 */
+  const idDisplay = [...html.matchAll(/#panel-\w+\s*\{[^}]*\}/g)]
+    .filter(m => /\bdisplay\s*:/.test(m[0])).map(m => m[0].replace(/\s+/g, ' ').trim());
+  check('没有 #panel-* 规则声明 display（否则会压过 .panel{display:none}）',
+        idDisplay.length === 0, idDisplay.join(' | '));
+  check('.panel 默认 display:none、.panel.active 才 display:flex',
+        /\.panel\s*\{[^}]*\bdisplay\s*:\s*none/.test(html) &&
+        /\.panel\.active\s*\{[^}]*\bdisplay\s*:\s*flex/.test(html));
+  check('入门面板确有 direction 声明（否则 flex 方向退化成 row）',
+        /#panel-intro\s*\{[^}]*flex-direction\s*:\s*column/.test(html));
+}
+
 console.log(`\n${fail ? '\x1b[31m' : '\x1b[32m'}结果：${pass} 通过，${fail} 失败\x1b[0m\n`);
 process.exit(fail ? 1 : 0);

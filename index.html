@@ -510,7 +510,8 @@ canvas.plot { display: block; width: 100%; border-radius: var(--r-s); background
 /* ============================================================
    量子入门
    ============================================================ */
-#panel-intro { display: flex; flex-direction: column; }
+/* 只声明方向；display 交给 .panel / .panel.active 控制，避免 ID 权重压过 .panel{display:none} */
+#panel-intro { flex-direction: column; }
 .intro-scroll { flex: 1; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; padding: 22px 22px 64px; width: 100%; }
 .intro-inner { max-width: 860px; margin: 0 auto; }
 
